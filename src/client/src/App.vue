@@ -1,47 +1,38 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import { ref } from 'vue'
+import { uiFetch } from './UIFetch'
+import type { Schedule } from './DataTransfer'
+import LoadingBar from './components/LoadingBar.vue'
+import ErrorWithRetry from './components/ErrorWithRetry.vue'
+import RegistrationForm from './components/RegistrationForm.vue'
+import { DateTime } from './Utils'
+
+const schedule = ref<Schedule>()
+const isLoadingSchedule = ref(false)
+const hasLoadingScheduleFailed = ref(false)
+const loadSchedule = async () => {
+  const result = await uiFetch(isLoadingSchedule, hasLoadingScheduleFailed, '/api/schedule')
+  if (result.succeeded) {
+    schedule.value = await result.response.json() as Schedule
+  }
+}
+loadSchedule()
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
+  <header class="bg-blue-htlvb">
+    <div class="max-w-screen-lg mx-auto flex gap-6">
+      <img src="@/assets/logo.svg" class="h-[80px] my-4" />
+      <div class="flex flex-col gap-2 py-4 text-slate-300">
+        <span class="text-2xl small-caps">Registrierung</span>
+        <span v-if="schedule !== undefined" class="text-4xl small-caps">{{ schedule.title }}</span>
+      </div>
     </div>
   </header>
-
-  <main>
-    <TheWelcome />
+  <main class="max-w-screen-lg mx-auto">
+    <LoadingBar v-if="isLoadingSchedule" class="m-4" />
+    <ErrorWithRetry v-else-if="hasLoadingScheduleFailed" @retry="loadSchedule" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
+    <ErrorWithRetry v-else-if="schedule?.type === 'hidden'" @retry="loadSchedule" class="m-4">Die Registrierung ist ab {{ DateTime.format(new Date(schedule.reservationStartTime), { weekday: 'long' }) }} Uhr möglich.</ErrorWithRetry>
+    <RegistrationForm v-else-if="schedule?.type === 'released'" :schedule="schedule" />
   </main>
 </template>
-
-<style scoped>
-header {
-  line-height: 1.5;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-}
-</style>

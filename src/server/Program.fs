@@ -1,36 +1,25 @@
-namespace HTLVB.RegistrationForm.Server
-#nowarn "20"
-open System
-open System.Collections.Generic
-open System.IO
-open System.Linq
-open System.Threading.Tasks
-open Microsoft.AspNetCore
+module HTLVB.RegistrationForm.Server.Main
+
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
-open Microsoft.AspNetCore.HttpsPolicy
-open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Hosting
-open Microsoft.Extensions.Logging
+open System
 
-module Program =
-    let exitCode = 0
+[<EntryPoint>]
+let main args =
+    let builder = WebApplication.CreateBuilder(args)
 
-    [<EntryPoint>]
-    let main args =
+    let appConfig = AppConfig.fromEnvironment builder.Configuration
+    builder.Services.AddSingleton(appConfig) |> ignore
+    builder.Services.AddSingleton(TimeProvider.System) |> ignore
 
-        let builder = WebApplication.CreateBuilder(args)
+    builder.Services.AddControllers() |> ignore
 
-        builder.Services.AddControllers()
+    let app = builder.Build()
 
-        let app = builder.Build()
+    app.UseHttpsRedirection() |> ignore
 
-        app.UseHttpsRedirection()
+    app.MapControllers() |> ignore
 
-        app.UseAuthorization()
-        app.MapControllers()
+    app.Run()
 
-        app.Run()
-
-        exitCode
+    0
