@@ -9,15 +9,15 @@ type MailConfig = {
     SmtpAddress: string
     MailboxUserName: string
     MailboxPassword: string
-    Sender: Mail.User
-    BccRecipient: Mail.User option
+    Sender: MailUser
+    BccRecipient: MailUser option
     Subject: string
     ContentTemplate: string
 }
 
 type AppConfig = {
     Culture: CultureInfo
-    DbConnectionString: Db.ConnectionString
+    DbConnectionString: ConnectionString
     Title: string
     ReservationStartTime: DateTimeOffset
     ReservationsPerSlot: int
@@ -70,7 +70,7 @@ module AppConfig =
 
         {
             Culture = CultureInfo.GetCultureInfo("de-AT")
-            DbConnectionString = envVar "DB_CONNECTION_STRING" |> Db.ConnectionString
+            DbConnectionString = envVar "DB_CONNECTION_STRING" |> PgsqlRegistrationStoreConnectionString
             Title = envVar "APP_TITLE"
             ReservationStartTime = envVarAsDateTime "RESERVATION_START_TIME" "dd.MM.yyyy HH:mm:ss"
             ReservationsPerSlot = envVarAsInt "SCHEDULE_RESERVATIONS_PER_SLOT"

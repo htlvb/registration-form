@@ -10,7 +10,7 @@ open System.Text.Json
 
 [<ApiController>]
 [<Route("/api/schedule")>]
-type RegistrationController(appConfig: AppConfig, timeProvider: TimeProvider, jsonOptions: IOptions<JsonOptions>) =
+type RegistrationController(appConfig: AppConfig, registrationStore: IRegistrationStore, bookingConfirmation: IBookingConfirmationSender, timeProvider: TimeProvider, jsonOptions: IOptions<JsonOptions>) =
     inherit ControllerBase()
 
     let getSlotStartTime (date: DateTimeOffset) (startTime: TimeSpan) (slotDuration: TimeSpan) slotNumber =
@@ -18,27 +18,27 @@ type RegistrationController(appConfig: AppConfig, timeProvider: TimeProvider, js
 
     [<HttpGet>]
     member _.GetRegistrations () = async {
-        let! schedule = Db.getSchedule (appConfig.DbConnectionString)
-        let scheduleEntries = [
-            for date in appConfig.Dates do
-            for slotNumber in [1..appConfig.NumberOfSlots] do
-                let startTime = getSlotStartTime date appConfig.StartTime appConfig.SlotDuration slotNumber
-                let quantityTaken =
-                    schedule
-                    |> List.filter (fun entry -> DateTimeOffset(entry.time) = startTime)
-                    |> List.sumBy (fun entry -> entry.quantity)
-                let reservationsLeft = appConfig.ReservationsPerSlot - quantityTaken
-
-                {
-                    StartTime = startTime
-                    ReservationType =
-                        if reservationsLeft <= 0 then ReservationTypeTaken() :> ReservationType
-                        else ReservationTypeFree ($"api/schedule/%d{date.Year}/%d{date.Month}/%d{date.Day}/%d{slotNumber}", reservationsLeft)
-                }
-        ]
         if appConfig.ReservationStartTime > timeProvider.GetUtcNow() then
             return HiddenSchedule(appConfig.Title, appConfig.ReservationStartTime) :> Schedule
         else
+            let! schedule = registrationStore.GetSchedule ()
+            let scheduleEntries = [
+                for date in appConfig.Dates do
+                for slotNumber in [1..appConfig.NumberOfSlots] do
+                    let startTime = getSlotStartTime date appConfig.StartTime appConfig.SlotDuration slotNumber
+                    let quantityTaken =
+                        schedule
+                        |> List.filter (fun entry -> DateTimeOffset(entry.time) = startTime)
+                        |> List.sumBy (fun entry -> entry.quantity)
+                    let reservationsLeft = appConfig.ReservationsPerSlot - quantityTaken
+
+                    {
+                        StartTime = startTime
+                        ReservationType =
+                            if reservationsLeft <= 0 then ReservationTypeTaken() :> ReservationType
+                            else ReservationTypeFree ($"api/schedule/%d{date.Year}/%d{date.Month}/%d{date.Day}/%d{slotNumber}", reservationsLeft)
+                    }
+            ]
             return ReleasedSchedule(appConfig.Title, appConfig.InfoText, scheduleEntries)
     }
 
@@ -51,29 +51,24 @@ type RegistrationController(appConfig: AppConfig, timeProvider: TimeProvider, js
             if DateTimeOffset.Now < appConfig.ReservationStartTime || DateTimeOffset.Now > slotStartTime then
                 return this.BadRequest () :> IActionResult
             else
-                let! reservationsLeft = Db.book appConfig.DbConnectionString appConfig.ReservationsPerSlot {
-                    Db.Schedule.time = slotStartTime.DateTime
-                    Db.Schedule.quantity = subscriber.Quantity
-                    Db.Schedule.name = subscriber.Name
-                    Db.Schedule.mail_address = subscriber.MailAddress
-                    Db.Schedule.phone_number = subscriber.PhoneNumber
-                    Db.Schedule.time_stamp = DateTime.Now
+                let! reservationsLeft = registrationStore.Book appConfig.ReservationsPerSlot {
+                    time = slotStartTime.DateTime
+                    quantity = subscriber.Quantity
+                    name = subscriber.Name
+                    mail_address = subscriber.MailAddress
+                    phone_number = subscriber.PhoneNumber
+                    time_stamp = DateTime.Now
                 }
                 let newReservationType =
                     if reservationsLeft <= 0 then ReservationTypeTaken() :> ReservationType
                     else ReservationTypeFree ($"api/schedule/%d{date.Year}/%d{date.Month}/%d{date.Day}/%d{slotNumber}", reservationsLeft)
-                let settings = {
-                    Mail.Settings.SmtpAddress = appConfig.MailConfig.SmtpAddress
-                    Mail.Settings.MailboxUserName =  appConfig.MailConfig.MailboxUserName
-                    Mail.Settings.MailboxPassword =  appConfig.MailConfig.MailboxPassword
-                    Mail.Settings.Sender =  appConfig.MailConfig.Sender
-                    Mail.Settings.Recipient = {
-                        Mail.User.Name = subscriber.Name
-                        Mail.User.MailAddress = subscriber.MailAddress
+                let mailSettings = {
+                    Recipient = {
+                        Name = subscriber.Name
+                        MailAddress = subscriber.MailAddress
                     }
-                    Mail.Settings.BccRecipient =  appConfig.MailConfig.BccRecipient
-                    Mail.Settings.Subject =  appConfig.MailConfig.Subject
-                    Mail.Settings.Content =
+                    Subject =  appConfig.MailConfig.Subject
+                    Content =
                         let templateVars = [
                             "FullName", subscriber.Name
                             "Date", slotStartTime.ToString("d", appConfig.Culture)
@@ -82,7 +77,7 @@ type RegistrationController(appConfig: AppConfig, timeProvider: TimeProvider, js
                         (appConfig.MailConfig.ContentTemplate, templateVars)
                         ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
                 }
-                do! Mail.sendBookingConfirmation settings
+                do! bookingConfirmation.SendBookingConfirmation mailSettings
                 return this.Ok(JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions))
         | _ -> return this.BadRequest()
     }

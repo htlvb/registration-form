@@ -1,14 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <InvariantGlobalization>false</InvariantGlobalization>
     <NoDefaultLaunchSettingsFile>True</NoDefaultLaunchSettingsFile>
+    <UserSecretsId>HTLVB.RegistrationForm</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Db.fs" />
-    <Compile Include="Mail.fs" />
+    <Compile Include="RegistrationStore.fs" />
+    <Compile Include="BookingConfirmationSender.fs" />
     <Compile Include="AppConfig.fs" />
     <Compile Include="DataTransfer.fs" />
     <Compile Include="Domain.fs" />
@@ -20,6 +21,8 @@
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="MailKit" Version="4.7.1.1" />
     <PackageReference Include="Markdig" Version="0.37.0" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.2.0" />
+    <PackageReference Include="Microsoft.Identity.Web.GraphServiceClient" Version="3.2.0" />
     <PackageReference Include="Npgsql" Version="8.0.4" />
   </ItemGroup>
 
