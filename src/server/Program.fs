@@ -1,6 +1,7 @@
 module HTLVB.RegistrationForm.Server.Main
 
 open Microsoft.AspNetCore.Builder
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Graph
 open Microsoft.Identity.Web
@@ -14,7 +15,11 @@ let main args =
     let appConfig = AppConfig.fromEnvironment builder.Configuration
     builder.Services.AddSingleton(appConfig) |> ignore
     builder.Services.AddSingleton(TimeProvider.System) |> ignore
-    builder.Services.AddSingleton(NpgsqlDataSource.Create(appConfig.DbConnectionString)) |> ignore
+    let pgsqlConnectionString =
+        builder.Configuration.GetConnectionString("Pgsql")
+        |> Option.ofObj
+        |> Option.defaultWith (fun () -> failwith "Can't find \"ConnectionStrings:Pgsql\"")
+    builder.Services.AddSingleton(NpgsqlDataSource.Create(pgsqlConnectionString)) |> ignore
     builder.Services.AddSingleton<IRegistrationStore, PgsqlRegistrationStore>() |> ignore
     builder.Services.AddSingleton<MSGraphMailSettings>({
         MailboxUserName =  appConfig.MailConfig.MailboxUserName
