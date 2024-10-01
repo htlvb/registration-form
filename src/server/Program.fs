@@ -2,10 +2,10 @@ module HTLVB.RegistrationForm.Server.Main
 
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Graph
 open Microsoft.Identity.Web
 open Npgsql
 open System
-open Microsoft.Graph
 
 [<EntryPoint>]
 let main args =
@@ -16,7 +16,7 @@ let main args =
     builder.Services.AddSingleton(TimeProvider.System) |> ignore
     builder.Services.AddSingleton(NpgsqlDataSource.Create(appConfig.DbConnectionString)) |> ignore
     builder.Services.AddSingleton<IRegistrationStore, PgsqlRegistrationStore>() |> ignore
-    builder.Services.AddSingleton<MSGraphSettings>({
+    builder.Services.AddSingleton<MSGraphMailSettings>({
         MailboxUserName =  appConfig.MailConfig.MailboxUserName
         Sender =  appConfig.MailConfig.Sender
         BccRecipient =  appConfig.MailConfig.BccRecipient

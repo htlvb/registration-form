@@ -11,7 +11,7 @@ type MailUser = {
     MailAddress: string
 }
 
-type SmtpSettings = {
+type SmtpMailSettings = {
     SmtpAddress: string
     MailboxUserName: string
     MailboxPassword: string
@@ -19,7 +19,7 @@ type SmtpSettings = {
     BccRecipient: MailUser option
 }
 
-type MSGraphSettings = {
+type MSGraphMailSettings = {
     MailboxUserName: string
     Sender: MailUser
     BccRecipient: MailUser option
@@ -34,7 +34,7 @@ type MailSettings = {
 type IBookingConfirmationSender =
     abstract member SendBookingConfirmation: MailSettings -> Async<unit>
 
-type SmtpBookingConfirmationSender(settings: SmtpSettings) =
+type SmtpBookingConfirmationSender(settings: SmtpMailSettings) =
     interface IBookingConfirmationSender with
         member _.SendBookingConfirmation mail = async {
             use message = new MimeMessage()
@@ -52,7 +52,7 @@ type SmtpBookingConfirmationSender(settings: SmtpSettings) =
             do! smtp.DisconnectAsync(true, ct) |> Async.AwaitTask
         }
 
-type MSGraphBookingConfirmationSender(graphServiceClient: GraphServiceClient, settings: MSGraphSettings) =
+type MSGraphBookingConfirmationSender(graphServiceClient: GraphServiceClient, settings: MSGraphMailSettings) =
     interface IBookingConfirmationSender with
         member _.SendBookingConfirmation mailSettings = async {
             let mail =
