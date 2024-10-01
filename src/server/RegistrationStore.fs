@@ -4,8 +4,6 @@ open Dapper
 open System
 open Npgsql
 
-type ConnectionString = PgsqlRegistrationStoreConnectionString of string
-
 type Schedule = {
     time: DateTime
     quantity: int
@@ -19,16 +17,7 @@ type IRegistrationStore =
     abstract member GetSchedule: unit -> Async<Schedule list>
     abstract member Book: maxQuantity: int -> data: Schedule -> Async<int>
 
-type PgsqlRegistrationStore(connectionString: ConnectionString) =
-    let dataSource =
-        let (PgsqlRegistrationStoreConnectionString connectionString) = connectionString
-        NpgsqlDataSource.Create(connectionString)
-
-    interface IDisposable with
-        member _.Dispose () = dataSource.Dispose()
-    interface IAsyncDisposable with
-        member _.DisposeAsync () = dataSource.DisposeAsync()
-
+type PgsqlRegistrationStore(dataSource: NpgsqlDataSource) =
     interface IRegistrationStore with
         member _.GetSchedule () = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
