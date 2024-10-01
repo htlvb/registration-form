@@ -69,7 +69,8 @@ type MSGraphBookingConfirmationSender(graphServiceClient: GraphServiceClient, se
                             ),
                             Subject = mailSettings.Subject,
                             Body = Models.ItemBody(Content = mailSettings.Content, ContentType = Models.BodyType.Text)
-                        )
+                        ),
+                    SaveToSentItems = false
                 )
             do! graphServiceClient.Users.[settings.MailboxUserName].SendMail.PostAsync(mail) |> Async.AwaitTask
         }
