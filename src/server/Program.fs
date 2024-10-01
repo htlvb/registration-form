@@ -21,10 +21,14 @@ let main args =
         |> Option.defaultWith (fun () -> failwith "Can't find \"ConnectionStrings:Pgsql\"")
     builder.Services.AddSingleton(NpgsqlDataSource.Create(pgsqlConnectionString)) |> ignore
     builder.Services.AddSingleton<IRegistrationStore, PgsqlRegistrationStore>() |> ignore
+    let mailConfig = builder.Configuration.GetRequiredSection("GraphMail")
     builder.Services.AddSingleton<MSGraphMailSettings>({
-        MailboxUserName =  appConfig.MailConfig.MailboxUserName
-        Sender =  appConfig.MailConfig.Sender
-        BccRecipient =  appConfig.MailConfig.BccRecipient
+        MailboxUserName = mailConfig.GetRequiredSection("Mailbox").Value
+        Sender = { Name = mailConfig.GetRequiredSection("SenderName").Value; MailAddress = mailConfig.GetRequiredSection("SenderAddress").Value }
+        BccRecipients =
+            mailConfig.GetRequiredSection("BccRecipients").GetChildren()
+            |> Seq.map (fun v -> { Name = v.GetRequiredSection("Name").Value; MailAddress = v.GetRequiredSection("Address").Value })
+            |> Seq.toList
     }) |> ignore
     builder.Services.AddScoped<IBookingConfirmationSender, MSGraphBookingConfirmationSender>() |> ignore
 

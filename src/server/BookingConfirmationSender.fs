@@ -22,7 +22,7 @@ type SmtpMailSettings = {
 type MSGraphMailSettings = {
     MailboxUserName: string
     Sender: MailUser
-    BccRecipient: MailUser option
+    BccRecipients: MailUser list
 }
 
 type MailSettings = {
@@ -62,9 +62,8 @@ type MSGraphBookingConfirmationSender(graphServiceClient: GraphServiceClient, se
                             From = Models.Recipient(EmailAddress = Models.EmailAddress(Address = settings.Sender.MailAddress, Name = settings.Sender.Name)),
                             ToRecipients = ([ Models.Recipient(EmailAddress = Models.EmailAddress(Address = mailSettings.Recipient.MailAddress, Name = mailSettings.Recipient.Name)) ] |> System.Collections.Generic.List),
                             BccRecipients = (
-                                settings.BccRecipient
-                                |> Option.map (fun v -> Models.Recipient(EmailAddress = Models.EmailAddress(Address = v.MailAddress, Name = v.Name)))
-                                |> Option.toList
+                                settings.BccRecipients
+                                |> List.map (fun v -> Models.Recipient(EmailAddress = Models.EmailAddress(Address = v.MailAddress, Name = v.Name)))
                                 |> System.Collections.Generic.List
                             ),
                             Subject = mailSettings.Subject,

@@ -6,11 +6,6 @@ open System
 open System.Globalization
 
 type MailConfig = {
-    SmtpAddress: string
-    MailboxUserName: string
-    MailboxPassword: string
-    Sender: MailUser
-    BccRecipient: MailUser option
     Subject: string
     ContentTemplate: string
 }
@@ -78,17 +73,6 @@ module AppConfig =
             SlotDuration = envVarAsTimeSpan "SCHEDULE_SLOT_DURATION" "hh\\:mm"
             NumberOfSlots = envVarAsInt "SCHEDULE_NUMBER_OF_SLOTS"
             MailConfig = {
-                SmtpAddress = envVar "MAILBOX_SMTP_ADDRESS"
-                MailboxUserName = envVar "MAILBOX_USERNAME"
-                MailboxPassword = envVar "MAILBOX_PASSWORD"
-                Sender = {
-                    Name = envVar "MAIL_SENDER_NAME"
-                    MailAddress = envVar "MAIL_SENDER_MAIL_ADDRESS"
-                }
-                BccRecipient =
-                    match optEnvVar "MAIL_BCC_RECIPIENT_NAME", optEnvVar "MAIL_BCC_RECIPIENT_MAIL_ADDRESS" with
-                    | Some name, Some mailAddress -> Some { Name = name; MailAddress = mailAddress }
-                    | _ -> None
                 Subject = envVar "MAIL_SUBJECT"
                 ContentTemplate = envVar "MAIL_CONTENT_TEMPLATE"
             }
