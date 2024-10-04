@@ -11,7 +11,8 @@ const schedule = ref<Schedule>()
 const isLoadingSchedule = ref(false)
 const hasLoadingScheduleFailed = ref(false)
 const loadSchedule = async () => {
-  const result = await uiFetch(isLoadingSchedule, hasLoadingScheduleFailed, '/api/schedule')
+  const eventKey = location.pathname.split('/').pop()
+  const result = await uiFetch(isLoadingSchedule, hasLoadingScheduleFailed, `/api/schedule/${eventKey}`)
   if (result.succeeded) {
     schedule.value = await result.response.json() as Schedule
   }
@@ -29,10 +30,12 @@ loadSchedule()
       </div>
     </div>
   </header>
-  <main class="max-w-screen-lg mx-auto">
-    <LoadingBar v-if="isLoadingSchedule" class="m-4" />
-    <ErrorWithRetry v-else-if="hasLoadingScheduleFailed" @retry="loadSchedule" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
-    <ErrorWithRetry v-else-if="schedule?.type === 'hidden'" @retry="loadSchedule" class="m-4">Die Registrierung ist ab {{ DateTime.format(new Date(schedule.reservationStartTime), { weekday: 'long' }) }} Uhr möglich.</ErrorWithRetry>
-    <RegistrationForm v-else-if="schedule?.type === 'released'" :schedule="schedule" />
+  <main class="grow overflow-y-scroll">
+    <div class="max-w-screen-lg mx-auto">
+      <LoadingBar v-if="isLoadingSchedule" class="m-4" />
+      <ErrorWithRetry v-else-if="hasLoadingScheduleFailed" @retry="loadSchedule" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
+      <ErrorWithRetry v-else-if="schedule?.type === 'hidden'" @retry="loadSchedule" class="m-4">Die Registrierung ist ab {{ DateTime.format(new Date(schedule.reservationStartTime), { weekday: 'long' }) }} Uhr möglich.</ErrorWithRetry>
+      <RegistrationForm v-else-if="schedule?.type === 'released'" :schedule="schedule" />
+    </div>
   </main>
 </template>

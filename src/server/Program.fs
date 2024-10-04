@@ -8,19 +8,22 @@ open Microsoft.Identity.Web
 open Npgsql
 open System
 
+type WestEuropeTimeProvider() =
+    inherit TimeProvider()
+
+    override _.LocalTimeZone with get () = TimeZoneInfo.FindSystemTimeZoneById("W. Europe Standard Time")
+
 [<EntryPoint>]
 let main args =
     let builder = WebApplication.CreateBuilder(args)
 
-    let appConfig = AppConfig.fromEnvironment builder.Configuration
-    builder.Services.AddSingleton(appConfig) |> ignore
-    builder.Services.AddSingleton(TimeProvider.System) |> ignore
+    builder.Services.AddSingleton<TimeProvider>(WestEuropeTimeProvider()) |> ignore
     let pgsqlConnectionString =
         builder.Configuration.GetConnectionString("Pgsql")
         |> Option.ofObj
         |> Option.defaultWith (fun () -> failwith "Can't find \"ConnectionStrings:Pgsql\"")
-    builder.Services.AddSingleton(NpgsqlDataSource.Create(pgsqlConnectionString)) |> ignore
-    builder.Services.AddSingleton<IRegistrationStore, PgsqlRegistrationStore>() |> ignore
+    builder.Services.AddSingleton(NpgsqlDataSourceBuilder(pgsqlConnectionString).EnableDynamicJson().Build()) |> ignore
+    builder.Services.AddSingleton<IEventStore, PgsqlEventStore>() |> ignore
     let mailConfig = builder.Configuration.GetRequiredSection("GraphMail")
     builder.Services.AddSingleton<MSGraphMailSettings>({
         MailboxUserName = mailConfig.GetRequiredSection("Mailbox").Value

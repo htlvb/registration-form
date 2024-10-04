@@ -8,15 +8,15 @@ open System.Text.Json.Serialization
 [<JsonDerivedType(typeof<ReservationTypeFree>, "free")>]
 [<JsonDerivedType(typeof<ReservationTypeTaken>, "taken")>]
 type ReservationType() = class end
-and ReservationTypeFree(url: string, maxQuantity: int) =
+and ReservationTypeFree(url: string, remainingCapacity: Nullable<int>) =
     inherit ReservationType()
     member _.Url = url
-    member _.MaxQuantity = maxQuantity
+    member _.RemainingCapacity = remainingCapacity
 and ReservationTypeTaken() =
     inherit ReservationType()
 
 type ScheduleEntry = {
-    StartTime: DateTimeOffset
+    StartTime: DateTime
     ReservationType: ReservationType
 }
 
@@ -25,7 +25,7 @@ type ScheduleEntry = {
 [<JsonDerivedType(typeof<HiddenSchedule>, "hidden")>]
 [<JsonDerivedType(typeof<ReleasedSchedule>, "released")>]
 type Schedule() = class end
-and HiddenSchedule(title: string, reservationStartTime: DateTimeOffset) =
+and HiddenSchedule(title: string, reservationStartTime: DateTime) =
     inherit Schedule()
     member _.Title = title
     member _.ReservationStartTime = reservationStartTime

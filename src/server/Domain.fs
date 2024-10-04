@@ -4,6 +4,21 @@ open HTLVB.RegistrationForm.Server
 open System
 open System.Net.Mail
 
+type Slot = {
+    Time: DateTime
+    RemainingCapacity: int option
+}
+
+type Event = {
+    Key: string
+    Title: string
+    InfoText: string
+    ReservationStartTime: DateTime
+    Slots: Slot[]
+    MailSubject: string
+    MailContentTemplate: string
+}
+
 type Subscriber = {
     Quantity: int
     Name: string
@@ -25,3 +40,6 @@ module Subscriber =
         if quantityIsValid && subscriberNameIsValid && mailAddressIsValid && phoneNumberIsValid
         then Ok { Quantity = subscriber.Quantity; Name = subscriber.Name; MailAddress = subscriber.MailAddress; PhoneNumber = subscriber.PhoneNumber }
         else Error ()
+
+type BookingError =
+    | CapacityExceeded of remainingCapacity: int

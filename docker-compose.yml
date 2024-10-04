@@ -5,6 +5,7 @@ services:
       - 5432:5432
     volumes:
       - ./db-schema.sql:/docker-entrypoint-initdb.d/01-db-schema.sql
+      - ./db-sample.sql:/docker-entrypoint-initdb.d/02-db-sample.sql
     environment:
       - POSTGRES_USER=registration-form
       - POSTGRES_PASSWORD=registration-form

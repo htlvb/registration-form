@@ -8,11 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="RegistrationStore.fs" />
-    <Compile Include="BookingConfirmationSender.fs" />
-    <Compile Include="AppConfig.fs" />
     <Compile Include="DataTransfer.fs" />
     <Compile Include="Domain.fs" />
+    <Compile Include="EventStore.fs" />
+    <Compile Include="BookingConfirmationSender.fs" />
     <Compile Include="Controllers/RegistrationController.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

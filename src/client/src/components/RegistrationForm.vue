@@ -14,7 +14,7 @@ const props = defineProps<{
 const dates = computed(() => _.uniq(props.schedule.entries.map(v => new Date(v.startTime).toDateString())))
 
 const totalFreeSlots = computed(() => {
-  return _.sumBy(props.schedule.entries, v => v.reservationType.type === 'free' ? v.reservationType.maxQuantity : 0)
+  return _.sumBy(props.schedule.entries, v => v.reservationType.type === 'free' ? v.reservationType.remainingCapacity : 0)
 })
 
 const infoText = computed(() => marked.parse(props.schedule.infoText))
@@ -51,18 +51,18 @@ watch(selectedEntry, newSelectedEntry => {
     selectedQuantity.value = undefined
     return
   }
-  if (newSelectedEntry.reservationType.type === 'free' && selectedQuantity.value > newSelectedEntry.reservationType.maxQuantity) {
+  if (newSelectedEntry.reservationType.type === 'free' && selectedQuantity.value > newSelectedEntry.reservationType.remainingCapacity) {
     selectedQuantity.value = undefined
     return
   }
 })
 
 const getFreeSlotsAtDate = (date: Date) => {
-  return _.sumBy(props.schedule.entries.filter(v => DateTime.dateEquals(date, new Date(v.startTime))), v => v.reservationType.type === 'free' ? v.reservationType.maxQuantity : 0)
+  return _.sumBy(props.schedule.entries.filter(v => DateTime.dateEquals(date, new Date(v.startTime))), v => v.reservationType.type === 'free' ? v.reservationType.remainingCapacity : 0)
 }
 
 const getFreeSlotsAtTime = (entry: ScheduleEntry) => {
-  return entry.reservationType.type === 'free' ? entry.reservationType.maxQuantity : 0
+  return entry.reservationType.type === 'free' ? entry.reservationType.remainingCapacity : 0
 }
 
 const pluralize = (v: number, singularText: string, pluralText: string) => {
@@ -160,7 +160,7 @@ const doRegister = async () => {
               <button v-if="entry.reservationType.type === 'free'" type="button" class="!flex flex-col items-center button"
                 :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
                 <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
-                <span class="text-sm">{{ pluralize(entry.reservationType.maxQuantity, 'freier Platz', 'freie Plätze') }}</span>
+                <span class="text-sm">{{ pluralize(entry.reservationType.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
               </button>
               <button v-else-if="entry.reservationType.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
                 <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>

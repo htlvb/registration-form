@@ -19,7 +19,7 @@ export type ScheduleEntry = {
 export type ReservationType = {
   type: 'free',
   url: string,
-  maxQuantity: number
+  remainingCapacity: number
 } | {
   type: 'taken'
 }

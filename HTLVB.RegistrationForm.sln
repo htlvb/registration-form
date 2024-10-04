@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server", "src\server\HTLVB.RegistrationForm.Server.fsproj", "{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server.Tests", "src\test\HTLVB.RegistrationForm.Server.Tests.fsproj", "{BCABED60-4FB9-4A30-807A-018C6698ED46}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCABED60-4FB9-4A30-807A-018C6698ED46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCABED60-4FB9-4A30-807A-018C6698ED46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCABED60-4FB9-4A30-807A-018C6698ED46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCABED60-4FB9-4A30-807A-018C6698ED46}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
