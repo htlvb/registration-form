@@ -25,5 +25,10 @@ export type ReservationType = {
   type: 'taken'
 }
 
+export type BookingResult = {
+  reservationType: ReservationType
+  mailSendError: boolean
+}
+
 export type BookingError =
   { error: 'capacity-exceeded', reservationType: ReservationType }

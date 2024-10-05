@@ -95,6 +95,15 @@ type RegistrationController(
                                             (event.MailContentTemplate, templateVars)
                                             ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
                                     }
-                                    do! bookingConfirmation.SendBookingConfirmation mailSettings
-                                    return this.Ok(JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)) :> IActionResult
+                                    try
+                                        do! bookingConfirmation.SendBookingConfirmation mailSettings
+                                        return this.Ok({|
+                                            ReservationType = JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)
+                                            MailSendError = false
+                                        |})
+                                    with _ ->
+                                        return this.Ok({|
+                                            ReservationType = JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)
+                                            MailSendError = true
+                                        |})
     }

@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import type { BookingError, ReleasedSchedule, ReservationType, ScheduleEntry } from '@/DataTransfer'
+import type { BookingError, BookingResult, ReleasedSchedule, ScheduleEntry } from '@/DataTransfer'
 import { uiFetch } from '@/UIFetch'
 import { DateTime } from '@/Utils'
 import _ from 'lodash'
@@ -86,9 +86,11 @@ const pluralize = (v: number, singularText: string, pluralText: string) => {
 const isRegistering = ref(false)
 const hasRegisteringFailed = ref(false)
 const isRegistered = ref(false)
+const isConfirmationMailSent = ref<boolean>()
 const registrationErrorMessages = ref([] as string[])
 const doRegister = async () => {
   isRegistered.value = false
+  isConfirmationMailSent.value = undefined
   if (selectedEntry.value === undefined) {
     registrationErrorMessages.value = [ 'Bitte wählen Sie Datum und Uhrzeit aus.' ]
     return
@@ -122,7 +124,9 @@ const doRegister = async () => {
     contactName.value = undefined
     contactMailAddress.value = undefined
     contactPhoneNumber.value = undefined
-    selectedEntry.value.reservationType = await result.response.json() as ReservationType
+    const bookingResult = await result.response.json() as BookingResult
+    selectedEntry.value.reservationType = bookingResult.reservationType
+    isConfirmationMailSent.value = !bookingResult.mailSendError
     if (selectedEntry.value.reservationType.type === 'taken') {
       selectedEntry.value = undefined
     }
@@ -223,9 +227,16 @@ const doRegister = async () => {
         </label>
         <LoadButton :loading="isRegistering" class="mt-2">Registrieren</LoadButton>
         <div class="mt-2">
-          <span v-if="isRegistered" class="text-green-500">
-            Ihre Registrierung wurde erfolgreich gespeichert. Sie erhalten in Kürze eine Bestätigung per Mail.
-          </span>
+          <template v-if="isRegistered && isConfirmationMailSent !== undefined">
+            <span v-if="isConfirmationMailSent" class="text-green-500">
+              Ihre Registrierung wurde erfolgreich gespeichert. Sie erhalten in Kürze eine Bestätigung per Mail.
+            </span>
+            <span v-else class="text-yellow-500">
+              Ihre Registrierung wurde erfolgreich gespeichert.<br />
+              Eine Bestätigungsmail konnte aber aufgrund eines internen Fehlers nicht versendet werden.<br />
+              Sie können sich ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.schedule.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
+            </span>
+          </template>
           <ul v-else-if="registrationErrorMessages.length > 0" class="text-red-500">
             <li v-for="content in registrationErrorMessages" :key="content" v-html="content"></li>
           </ul>
