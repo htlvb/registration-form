@@ -11,11 +11,26 @@ const props = defineProps<{
   schedule: ReleasedSchedule
 }>()
 
-const dates = computed(() => _.uniq(props.schedule.entries.map(v => new Date(v.startTime).toDateString())))
+const datesWithFreeSlots = computed(() =>
+  _(props.schedule.entries)
+    .groupBy(v => new Date(v.startTime).toDateString())
+    .map((v, k) => ({ date: k, freeSlots: getFreeSlots(v) }))
+    .value()
+)
 
-const totalFreeSlots = computed(() => {
-  return _.sumBy(props.schedule.entries, v => v.reservationType.type === 'free' ? v.reservationType.remainingCapacity : 0)
-})
+const getFreeSlots = (entries: ScheduleEntry[]) => {
+  return entries
+    .map(v => {
+      if (v.reservationType.type === 'free') return v.reservationType.remainingCapacity
+      else return 0
+    })
+    .reduce((previous, current) => {
+      if (current === null || previous === undefined) return undefined
+      return previous + current
+    }, 0 as number | undefined)
+}
+
+const totalFreeSlots = computed(() => getFreeSlots(props.schedule.entries))
 
 const infoText = computed(() => marked.parse(props.schedule.infoText))
 
@@ -41,29 +56,25 @@ watch(selectedDate, () => {
       && DateTime.timeEquals(selectedEntryTime, new Date(v.startTime))
     )
 })
-watch(selectedEntry, newSelectedEntry => {
-  if (selectedQuantity.value === undefined) return
-  if (newSelectedEntry === undefined) {
-    selectedQuantity.value = undefined
-    return
-  }
-  if (newSelectedEntry.reservationType.type === 'taken') {
-    selectedQuantity.value = undefined
-    return
-  }
-  if (newSelectedEntry.reservationType.type === 'free' && selectedQuantity.value > newSelectedEntry.reservationType.remainingCapacity) {
-    selectedQuantity.value = undefined
-    return
-  }
+
+const selectedEntryFreeSlots = computed(() =>
+{
+  if (selectedEntry.value === undefined) return 0
+  const reservationType = selectedEntry.value.reservationType
+  if (reservationType.type === 'taken') return 0
+  if (reservationType.remainingCapacity === null) return reservationType.maxQuantityPerBooking || 15
+  if (reservationType.maxQuantityPerBooking === null) return reservationType.remainingCapacity || 15
+  return Math.min(reservationType.maxQuantityPerBooking, reservationType.remainingCapacity)
 })
 
-const getFreeSlotsAtDate = (date: Date) => {
-  return _.sumBy(props.schedule.entries.filter(v => DateTime.dateEquals(date, new Date(v.startTime))), v => v.reservationType.type === 'free' ? v.reservationType.remainingCapacity : 0)
-}
-
-const getFreeSlotsAtTime = (entry: ScheduleEntry) => {
-  return entry.reservationType.type === 'free' ? entry.reservationType.remainingCapacity : 0
-}
+watch(selectedEntryFreeSlots, freeSlots => {
+  if (freeSlots === 1) {
+    selectedQuantity.value = 1
+  }
+  else if (selectedQuantity.value !== undefined && selectedQuantity.value > freeSlots) {
+    selectedQuantity.value = undefined
+  }
+})
 
 const pluralize = (v: number, singularText: string, pluralText: string) => {
   if (v === 1) {
@@ -135,17 +146,21 @@ const doRegister = async () => {
     <div v-html="infoText" class="my-6"></div>
     <form @submit.prevent="doRegister">
       <fieldset :disabled="isRegistering">
-        <div v-if="dates.length > 1">
+        <div v-if="datesWithFreeSlots.length > 1">
           <h2 class="text-lg">Datum</h2>
           <div class="mt-2 flex flex-wrap gap-2">
-            <template v-for="date in dates" :key="date">
-              <button v-if="getFreeSlotsAtDate(new Date(date)) > 0" type="button" class="!flex flex-col items-center button"
-                :class="{ 'button-htlvb-selected': selectedDate === date }" @click="selectedDate = date">
-                <span>{{ DateTime.formatDate(new Date(date), { weekday: 'short' }) }}</span>
-                <span class="text-sm">{{ pluralize(getFreeSlotsAtDate(new Date(date)), 'freier Platz', 'freie Plätze') }}</span>
+            <template v-for="dateWithFreeSlots in datesWithFreeSlots" :key="dateWithFreeSlots">
+              <button v-if="dateWithFreeSlots.freeSlots === undefined" type="button" class="!flex flex-col items-center justify-center button"
+                :class="{ 'button-htlvb-selected': selectedDate === dateWithFreeSlots.date }" @click="selectedDate = dateWithFreeSlots.date">
+                <span>{{ DateTime.formatDate(new Date(dateWithFreeSlots.date), { weekday: 'short' }) }}</span>
+              </button>
+              <button v-else-if="dateWithFreeSlots.freeSlots > 0" type="button" class="!flex flex-col items-center button"
+                :class="{ 'button-htlvb-selected': selectedDate === dateWithFreeSlots.date }" @click="selectedDate = dateWithFreeSlots.date">
+                <span>{{ DateTime.formatDate(new Date(dateWithFreeSlots.date), { weekday: 'short' }) }}</span>
+                <span class="text-sm">{{ pluralize(dateWithFreeSlots.freeSlots, 'freier Platz', 'freie Plätze') }}</span>
               </button>
               <button v-else type="button" :disabled="true" class="!flex flex-col items-center button">
-                <span>{{ DateTime.formatDate(new Date(date), { weekday: 'short' }) }}</span>
+                <span>{{ DateTime.formatDate(new Date(dateWithFreeSlots.date), { weekday: 'short' }) }}</span>
                 <span class="text-sm">ausgebucht</span>
               </button>
             </template>
@@ -154,14 +169,19 @@ const doRegister = async () => {
         <template v-if="selectedDate !== undefined">
           <h2 class="text-lg mt-4">Uhrzeit</h2>
           <div class="mt-2 flex flex-wrap gap-2">
-            <template
-              v-for="entry in schedule.entries.filter(v => selectedDate !== undefined && DateTime.dateEquals(new Date(selectedDate), new Date(v.startTime)))"
+            <template v-for="entry in schedule.entries.filter(v => selectedDate !== undefined && DateTime.dateEquals(new Date(selectedDate), new Date(v.startTime)))"
               :key="entry.startTime">
-              <button v-if="entry.reservationType.type === 'free'" type="button" class="!flex flex-col items-center button"
-                :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
-                <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
-                <span class="text-sm">{{ pluralize(entry.reservationType.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
-              </button>
+              <template v-if="entry.reservationType.type === 'free'">
+                <button v-if="entry.reservationType.remainingCapacity === null" type="button" class="!flex flex-col items-center justify-center button"
+                  :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
+                  <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
+                </button>
+                <button v-else type="button" class="!flex flex-col items-center button"
+                  :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
+                  <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
+                  <span class="text-sm">{{ pluralize(entry.reservationType.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
+                </button>
+              </template>
               <button v-else-if="entry.reservationType.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
                 <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
                 <span class="text-sm">ausgebucht</span>
@@ -169,10 +189,10 @@ const doRegister = async () => {
             </template>
           </div>
         </template>
-        <template v-if="selectedEntry !== undefined">
+        <template v-if="selectedEntryFreeSlots > 1">
           <h2 class="text-lg mt-4">Anzahl Personen</h2>
           <div class="mt-2 flex flex-wrap gap-2">
-            <button v-for="quantity in _.range(1, getFreeSlotsAtTime(selectedEntry) + 1)" :key="quantity" type="button" class="button"
+            <button v-for="quantity in _.range(1, selectedEntryFreeSlots + 1)" :key="quantity" type="button" class="button"
               :class="{ 'button-htlvb-selected': selectedQuantity !== undefined && selectedQuantity >= quantity }"
               @click="selectedQuantity = quantity">
               {{ quantity }}

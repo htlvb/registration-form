@@ -22,7 +22,7 @@ type RegistrationController(
         | Some v when v <= 0 -> DataTransfer.ReservationTypeTaken() :> DataTransfer.ReservationType
         | remainingCapacity ->
             let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
-            DataTransfer.ReservationTypeFree (url, Option.toNullable remainingCapacity)
+            DataTransfer.ReservationTypeFree (url, Option.toNullable slot.MaxQuantityPerBooking, Option.toNullable remainingCapacity)
 
     let getScheduleEntry eventKey slot : DataTransfer.ScheduleEntry =
         {
@@ -60,38 +60,42 @@ type RegistrationController(
                     match Subscriber.validate subscriber with
                     | Error _ -> return this.BadRequest()
                     | Ok subscriber ->
-                        let now = timeProvider.GetLocalNow().DateTime
-                        if now < event.ReservationStartTime || now > slotTime then
+                        match slot.MaxQuantityPerBooking with
+                        | Some maxQuantityPerBooking when subscriber.Quantity > maxQuantityPerBooking ->
                             return this.BadRequest ()
-                        else
-                            let! remainingCapacity = eventStore.TryBook event.Key {
-                                time = slotTime
-                                quantity = subscriber.Quantity
-                                name = subscriber.Name
-                                mail_address = subscriber.MailAddress
-                                phone_number = subscriber.PhoneNumber
-                                time_stamp = now
-                            }
-                            match remainingCapacity with
-                            | Error (CapacityExceeded remainingCapacity) ->
-                                return this.BadRequest({| Error = "CapacityExceeded"; RemainingCapacity = remainingCapacity |})
-                            | Ok remainingCapacity ->
-                                let newReservationType = getReservationType event.Key { slot with RemainingCapacity = remainingCapacity }
-                                let mailSettings = {
-                                    Recipient = {
-                                        Name = subscriber.Name
-                                        MailAddress = subscriber.MailAddress
-                                    }
-                                    Subject =  event.MailSubject
-                                    Content =
-                                        let templateVars = [
-                                            "FullName", subscriber.Name
-                                            "Date", slot.Time.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
-                                            "Time", slot.Time.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
-                                        ]
-                                        (event.MailContentTemplate, templateVars)
-                                        ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+                        | _ ->
+                            let now = timeProvider.GetLocalNow().DateTime
+                            if now < event.ReservationStartTime || now > slotTime then
+                                return this.BadRequest ()
+                            else
+                                let! remainingCapacity = eventStore.TryBook event.Key {
+                                    time = slotTime
+                                    quantity = subscriber.Quantity
+                                    name = subscriber.Name
+                                    mail_address = subscriber.MailAddress
+                                    phone_number = subscriber.PhoneNumber
+                                    time_stamp = now
                                 }
-                                do! bookingConfirmation.SendBookingConfirmation mailSettings
-                                return this.Ok(JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)) :> IActionResult
+                                match remainingCapacity with
+                                | Error (CapacityExceeded remainingCapacity) ->
+                                    return this.BadRequest({| Error = "CapacityExceeded"; RemainingCapacity = remainingCapacity |})
+                                | Ok remainingCapacity ->
+                                    let newReservationType = getReservationType event.Key { slot with RemainingCapacity = remainingCapacity }
+                                    let mailSettings = {
+                                        Recipient = {
+                                            Name = subscriber.Name
+                                            MailAddress = subscriber.MailAddress
+                                        }
+                                        Subject =  event.MailSubject
+                                        Content =
+                                            let templateVars = [
+                                                "FullName", subscriber.Name
+                                                "Date", slot.Time.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
+                                                "Time", slot.Time.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                                            ]
+                                            (event.MailContentTemplate, templateVars)
+                                            ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+                                    }
+                                    do! bookingConfirmation.SendBookingConfirmation mailSettings
+                                    return this.Ok(JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)) :> IActionResult
     }

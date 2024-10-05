@@ -14,13 +14,13 @@ Antworten Sie dafür auf diese E-Mail bzw. kontaktieren Sie uns telefonisch unte
 
 Wir freuen uns, Sie bei uns begrüßen zu dürfen.'
     );
-INSERT INTO event_slot (event_key, time, remaining_capacity) VALUES
-    ('schulfuehrungen-2025', '2025-01-28 14:00:00', 15),
-    ('schulfuehrungen-2025', '2025-01-28 15:00:00', 15),
-    ('schulfuehrungen-2025', '2025-01-28 16:00:00', NULL),
-    ('schulfuehrungen-2025', '2025-02-03 14:00:00', 15),
-    ('schulfuehrungen-2025', '2025-02-03 15:00:00', 15),
-    ('schulfuehrungen-2025', '2025-02-03 16:00:00', 15);
+INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity) VALUES
+    ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, 15),
+    ('schulfuehrungen-2025', '2025-01-28 15:00:00', 10, 15),
+    ('schulfuehrungen-2025', '2025-01-28 16:00:00', NULL, NULL),
+    ('schulfuehrungen-2025', '2025-02-03 14:00:00', 25, 15),
+    ('schulfuehrungen-2025', '2025-02-03 15:00:00', 15, 15),
+    ('schulfuehrungen-2025', '2025-02-03 16:00:00', 15, 15);
 
 INSERT INTO event (key, title, info_text, reservation_start_time, mail_subject, mail_content_template) VALUES
     (
@@ -42,6 +42,6 @@ Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir dich, uns so
 
 Wir freuen uns auf dich.'
     );
-INSERT INTO event_slot (event_key, time, remaining_capacity) VALUES
-    ('lets-code-2425', '2024-12-18 13:30:00', 20),
-    ('lets-code-2425', '2025-01-11 08:00:00', 20);
+INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity) VALUES
+    ('lets-code-2425', '2024-12-18 13:30:00', 1, 20),
+    ('lets-code-2425', '2025-01-11 08:00:00', 1, 20);

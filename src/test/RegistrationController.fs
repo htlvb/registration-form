@@ -48,7 +48,8 @@ let ``Can make booking when enough capacity`` () = async {
         releasedSchedule.Entries
         |> List.tryPick (fun v ->
             match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v when v.RemainingCapacity.HasValue -> Some (v.Url, v.RemainingCapacity.Value)
+            | :? DataTransfer.ReservationTypeFree as v when not v.MaxQuantityPerBooking.HasValue && v.RemainingCapacity.HasValue ->
+                Some (v.Url, v.RemainingCapacity.Value)
             | _ -> None
         )
         |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
@@ -74,7 +75,8 @@ let ``Can't make booking when not enough capacity`` () = async {
         releasedSchedule.Entries
         |> List.tryPick (fun v ->
             match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v when v.RemainingCapacity.HasValue -> Some (v.Url, v.RemainingCapacity.Value)
+            | :? DataTransfer.ReservationTypeFree as v when not v.MaxQuantityPerBooking.HasValue && v.RemainingCapacity.HasValue ->
+                Some (v.Url, v.RemainingCapacity.Value)
             | _ -> None
         )
         |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
@@ -100,7 +102,8 @@ let ``Can make two consecutive bookings when enough capacity`` () = async {
         releasedSchedule.Entries
         |> List.tryPick (fun v ->
             match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v when v.RemainingCapacity.HasValue && v.RemainingCapacity.Value > 1 -> Some v.Url
+            | :? DataTransfer.ReservationTypeFree as v when v.RemainingCapacity.HasValue && v.RemainingCapacity.Value > 1 ->
+                Some v.Url
             | _ -> None
         )
         |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
@@ -129,7 +132,8 @@ let ``Can make booking when no capacity limit`` () = async {
         releasedSchedule.Entries
         |> List.tryPick (fun v ->
             match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v when not v.RemainingCapacity.HasValue -> Some v.Url
+            | :? DataTransfer.ReservationTypeFree as v when not v.MaxQuantityPerBooking.HasValue && not v.RemainingCapacity.HasValue ->
+                Some v.Url
             | _ -> None
         )
         |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
@@ -143,4 +147,31 @@ let ``Can make booking when no capacity limit`` () = async {
     let! reservationType = response.Content.ReadFromJsonAsync<DataTransfer.ReservationType>() |> Async.AwaitTask
     let reservationTypeFree = reservationType :?> DataTransfer.ReservationTypeFree
     Assert.Equal(None, Option.ofNullable reservationTypeFree.RemainingCapacity)
+}
+
+[<Fact>]
+let ``Can't make booking when quantity > max quantity per booking`` () = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let reservationStartTime = FakeData.events.["tdot-2025"].ReservationStartTime
+    server |> InMemoryServer.setTimeProviderTime reservationStartTime
+    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/tdot-2025") |> Async.AwaitTask
+    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
+    let (slotUrl, maxQuantityPerBooking) =
+        releasedSchedule.Entries
+        |> List.tryPick (fun v ->
+            match v.ReservationType with
+            | :? DataTransfer.ReservationTypeFree as v when v.MaxQuantityPerBooking.HasValue && (not v.RemainingCapacity.HasValue || v.RemainingCapacity.Value > v.MaxQuantityPerBooking.Value) ->
+                Some (v.Url, v.MaxQuantityPerBooking.Value)
+            | _ -> None
+        )
+        |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
+    let reservationData : DataTransfer.Subscriber = {
+        Name = "Albert"
+        MailAddress = "albert@einstein.com"
+        PhoneNumber = "07612/123456789"
+        Quantity = maxQuantityPerBooking + 1
+    }
+    let! response = httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
+    Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
 }

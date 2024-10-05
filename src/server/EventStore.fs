@@ -6,8 +6,17 @@ open Npgsql
 
 type DbEventSlot = {
     time: DateTime
+    max_quantity_per_booking: Nullable<int>
     remaining_capacity: Nullable<int>
 }
+
+module DbEventSlot =
+    let toDomain (dbEventSlot: DbEventSlot) : Domain.Slot =
+        {
+            Time = dbEventSlot.time
+            MaxQuantityPerBooking = Option.ofNullable dbEventSlot.max_quantity_per_booking
+            RemainingCapacity = Option.ofNullable dbEventSlot.remaining_capacity
+        }
 
 type DbEvent = {
     key: string
@@ -19,13 +28,13 @@ type DbEvent = {
 }
 
 module DbEvent =
-    let toDomain (dbEvent: DbEvent) (dbEventSlots: DbEventSlot[]) : Domain.Event =
+    let toDomain dbEvent dbEventSlots : Domain.Event =
         {
             Key = dbEvent.key
             Title = dbEvent.title
             InfoText = dbEvent.info_text
             ReservationStartTime = dbEvent.reservation_start_time
-            Slots = dbEventSlots |> Array.map (fun (v) -> { Time = v.time; RemainingCapacity = Option.ofNullable v.remaining_capacity })
+            Slots = dbEventSlots |> Array.map DbEventSlot.toDomain
             MailSubject = dbEvent.mail_subject
             MailContentTemplate = dbEvent.mail_content_template
         }
@@ -51,7 +60,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, mail_subject, mail_content_template FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
             match Seq.toList dbEvents with
             | [ dbEvent ] ->
-                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, remaining_capacity FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, max_quantity_per_booking, remaining_capacity FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
                 return DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots) |> Some
             | _ -> return None
         }

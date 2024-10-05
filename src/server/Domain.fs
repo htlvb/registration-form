@@ -6,6 +6,7 @@ open System.Net.Mail
 
 type Slot = {
     Time: DateTime
+    MaxQuantityPerBooking: int option
     RemainingCapacity: int option
 }
 

@@ -21,6 +21,7 @@ CREATE TABLE event(
 CREATE TABLE event_slot(
     event_key VARCHAR NOT NULL REFERENCES event(key) ON UPDATE CASCADE,
     time TIMESTAMP NOT NULL,
+    max_quantity_per_booking INT,
     remaining_capacity INT,
     PRIMARY KEY(event_key, time)
 );
