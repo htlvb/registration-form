@@ -9,10 +9,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\db-schema.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Utils\InMemoryBookingConfirmationSender.fs" />
     <Compile Include="Utils\InMemoryEventStore.fs" />
     <Compile Include="Utils\FakeData.fs" />
     <Compile Include="Utils\InMemoryServer.fs" />
+    <Compile Include="PgsqlEventStore.fs" />
     <Compile Include="RegistrationController.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -21,6 +28,7 @@
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.8" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.9.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
     <PackageReference Include="xunit" Version="2.4.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

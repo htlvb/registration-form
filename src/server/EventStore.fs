@@ -74,7 +74,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
         member _.TryBook eventKey data = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
             use! tx = connection.BeginTransactionAsync().AsTask() |> Async.AwaitTask
-            let! remainingCapacity = connection.QuerySingleAsync<Nullable<int>>("SELECT remaining_capacity FROM event_slot WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = data.time |}, tx) |> Async.AwaitTask
+            let! remainingCapacity = connection.QuerySingleAsync<Nullable<int>>("SELECT remaining_capacity FROM event_slot WHERE event_key = @EventKey AND time = @Time FOR UPDATE", {| EventKey = eventKey; Time = data.time |}, tx) |> Async.AwaitTask
             match Option.ofNullable remainingCapacity with
             | Some remainingCapacity when remainingCapacity < data.quantity ->
                 return Error (Domain.CapacityExceeded remainingCapacity)
