@@ -29,7 +29,6 @@ type RegistrationController(
             StartTime = slot.Time
             ReservationType = getReservationType eventKey slot
         }
-                        
 
     [<HttpGet("{eventKey}")>]
     member this.GetRegistrations (eventKey: string) = async {
