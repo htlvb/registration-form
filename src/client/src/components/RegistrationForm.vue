@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import type { ReleasedSchedule, ReservationType, ScheduleEntry } from '@/DataTransfer'
+import type { BookingError, ReleasedSchedule, ReservationType, ScheduleEntry } from '@/DataTransfer'
 import { uiFetch } from '@/UIFetch'
 import { DateTime } from '@/Utils'
 import _ from 'lodash'
@@ -125,6 +125,15 @@ const doRegister = async () => {
     selectedEntry.value.reservationType = await result.response.json() as ReservationType
     if (selectedEntry.value.reservationType.type === 'taken') {
       selectedEntry.value = undefined
+    }
+  }
+  else if (result.response !== undefined) {
+    let errors = await result.response.json() as BookingError[]
+    for (const error of errors) {
+      if (error.error === 'capacity-exceeded') {
+        selectedEntry.value.reservationType = error.reservationType
+        registrationErrorMessages.value.push(`Die Reservierung konnte nicht gespeichert werden, weil nicht mehr genügend Plätze frei sind.`)
+      }
     }
   }
   else {

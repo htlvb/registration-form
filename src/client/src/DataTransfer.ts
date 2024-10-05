@@ -24,3 +24,6 @@ export type ReservationType = {
 } | {
   type: 'taken'
 }
+
+export type BookingError =
+  { error: 'capacity-exceeded', reservationType: ReservationType }

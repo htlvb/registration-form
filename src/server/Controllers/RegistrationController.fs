@@ -77,7 +77,7 @@ type RegistrationController(
                                 }
                                 match remainingCapacity with
                                 | Error (CapacityExceeded remainingCapacity) ->
-                                    return this.BadRequest({| Error = "CapacityExceeded"; RemainingCapacity = remainingCapacity |})
+                                    return this.BadRequest([{| Error = "capacity-exceeded"; ReservationType = getReservationType event.Key { slot with RemainingCapacity = Some remainingCapacity } |}])
                                 | Ok remainingCapacity ->
                                     let newReservationType = getReservationType event.Key { slot with RemainingCapacity = remainingCapacity }
                                     let mailSettings = {
