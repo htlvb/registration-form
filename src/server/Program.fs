@@ -47,6 +47,9 @@ let main args =
 
     app.UseHttpsRedirection() |> ignore
 
+    app.UseFileServer() |> ignore
+    app.MapFallbackToFile("index.html") |> ignore
+
     app.MapControllers() |> ignore
 
     app.Run()

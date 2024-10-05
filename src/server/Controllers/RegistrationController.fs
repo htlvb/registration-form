@@ -30,7 +30,7 @@ type RegistrationController(
             ReservationType = getReservationType eventKey slot
         }
 
-    [<HttpGet("{eventKey}")>]
+    [<HttpGet("{eventKey?}")>]
     member this.GetRegistrations (eventKey: string) = async {
         match! eventStore.TryGetEvent eventKey with
         | None -> return this.NotFound() :> IActionResult
