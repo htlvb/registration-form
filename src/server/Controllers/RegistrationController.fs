@@ -18,16 +18,20 @@ type RegistrationController(
     inherit ControllerBase()
 
     let getReservationType eventKey slot =
-        match slot.RemainingCapacity with
-        | Some v when v <= 0 -> DataTransfer.ReservationTypeTaken() :> DataTransfer.ReservationType
-        | remainingCapacity ->
-            let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
-            DataTransfer.ReservationTypeFree (
-                url,
-                Option.toNullable slot.ClosingDate,
-                Option.toNullable slot.MaxQuantityPerBooking,
-                Option.toNullable remainingCapacity
-            )
+        match slot.ClosingDate with
+        | Some closingDate when timeProvider.GetLocalNow().DateTime >= closingDate ->
+            DataTransfer.ReservationTypeClosed() :> DataTransfer.ReservationType
+        | _ ->
+            match slot.RemainingCapacity with
+            | Some v when v <= 0 -> DataTransfer.ReservationTypeTaken()
+            | remainingCapacity ->
+                let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
+                DataTransfer.ReservationTypeFree (
+                    url,
+                    Option.toNullable slot.ClosingDate,
+                    Option.toNullable slot.MaxQuantityPerBooking,
+                    Option.toNullable remainingCapacity
+                )
 
     let getScheduleEntry eventKey slot : DataTransfer.ScheduleEntry =
         {

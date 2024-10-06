@@ -6,6 +6,7 @@ open System.Text.Json.Serialization
 [<AbstractClass>]
 [<JsonPolymorphic(TypeDiscriminatorPropertyName = "type")>]
 [<JsonDerivedType(typeof<ReservationTypeFree>, "free")>]
+[<JsonDerivedType(typeof<ReservationTypeClosed>, "closed")>]
 [<JsonDerivedType(typeof<ReservationTypeTaken>, "taken")>]
 type ReservationType() = class end
 and ReservationTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
@@ -14,6 +15,8 @@ and ReservationTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantit
     member _.ClosingDate = closingDate
     member _.MaxQuantityPerBooking = maxQuantityPerBooking
     member _.RemainingCapacity = remainingCapacity
+and ReservationTypeClosed() =
+    inherit ReservationType()
 and ReservationTypeTaken() =
     inherit ReservationType()
 

@@ -213,3 +213,21 @@ let ``Can't make booking after closing date`` () = async {
     let! response = makeBookingAroundClosingDate (TimeSpan.Zero)
     Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
 }
+
+[<Fact>]
+let ``Can get closed slot`` () = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let (slotTime, closingDate) =
+        FakeData.events.["lets-code-2425"].Slots
+        |> Array.tryPick (fun v -> match v.ClosingDate with | Some closingDate -> Some (v.Time, closingDate) | None -> None)
+        |> Option.defaultWith (fun () -> Assert.Fail("No slot with closing date found"); Unchecked.defaultof<_>)
+    server |> InMemoryServer.setTimeProviderTime closingDate
+    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/lets-code-2425") |> Async.AwaitTask
+    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
+    let scheduleEntry =
+        releasedSchedule.Entries
+        |> List.tryFind (fun v -> v.StartTime = slotTime)
+        |> Option.defaultWith (fun () -> Assert.Fail("Slot no longer found"); Unchecked.defaultof<_>)
+    Assert.IsType<DataTransfer.ReservationTypeClosed>(scheduleEntry.ReservationType) |> ignore
+}

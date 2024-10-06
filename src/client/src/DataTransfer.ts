@@ -17,10 +17,13 @@ export type ScheduleEntry = {
 }
 
 export type ReservationType = {
-  type: 'free',
-  url: string,
+  type: 'free'
+  url: string
+  closingDate: string | null
   maxQuantityPerBooking: number | null
   remainingCapacity: number | null
+} | {
+  type: 'closed'
 } | {
   type: 'taken'
 }
