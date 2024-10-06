@@ -97,13 +97,15 @@ type RegistrationController(
                                     }
                                     try
                                         do! bookingConfirmation.SendBookingConfirmation mailSettings
-                                        return this.Ok({|
-                                            ReservationType = JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)
+                                        let bookingResult: DataTransfer.BookingResult = {
+                                            ReservationType = newReservationType
                                             MailSendError = false
-                                        |})
+                                        }
+                                        return this.Ok(bookingResult)
                                     with _ ->
-                                        return this.Ok({|
-                                            ReservationType = JsonSerializer.SerializeToElement(newReservationType, jsonOptions.Value.JsonSerializerOptions)
+                                        let bookingResult: DataTransfer.BookingResult = {
+                                            ReservationType = newReservationType
                                             MailSendError = true
-                                        |})
+                                        }
+                                        return this.Ok(bookingResult)
     }

@@ -114,8 +114,8 @@ let ``Can make two consecutive bookings when enough capacity`` () = async {
         Quantity = 1
     }
     let! response = httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
-    let! reservationType = response.Content.ReadFromJsonAsync<DataTransfer.ReservationType>() |> Async.AwaitTask
-    let reservationTypeFree = reservationType :?> DataTransfer.ReservationTypeFree
+    let! bookingResult = response.Content.ReadFromJsonAsync<DataTransfer.BookingResult>() |> Async.AwaitTask
+    let reservationTypeFree = bookingResult.ReservationType :?> DataTransfer.ReservationTypeFree
     let! response = httpClient.PostAsJsonAsync(reservationTypeFree.Url, reservationData) |> Async.AwaitTask
     Assert.Equal(enum StatusCodes.Status200OK, response.StatusCode)
 }
@@ -144,8 +144,8 @@ let ``Can make booking when no capacity limit`` () = async {
         Quantity = Int32.MaxValue
     }
     let! response = httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
-    let! reservationType = response.Content.ReadFromJsonAsync<DataTransfer.ReservationType>() |> Async.AwaitTask
-    let reservationTypeFree = reservationType :?> DataTransfer.ReservationTypeFree
+    let! bookingResult = response.Content.ReadFromJsonAsync<DataTransfer.BookingResult>() |> Async.AwaitTask
+    let reservationTypeFree = bookingResult.ReservationType :?> DataTransfer.ReservationTypeFree
     Assert.Equal(None, Option.ofNullable reservationTypeFree.RemainingCapacity)
 }
 

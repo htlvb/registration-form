@@ -42,3 +42,8 @@ type Subscriber = {
     MailAddress: string
     PhoneNumber: string
 }
+
+type BookingResult = {
+    ReservationType: ReservationType
+    MailSendError: bool
+}
