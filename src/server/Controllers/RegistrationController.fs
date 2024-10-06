@@ -9,7 +9,7 @@ open System.Text.Json
 open System.Globalization
 
 [<ApiController>]
-[<Route("/api/schedule")>]
+[<Route("/api/event")>]
 type RegistrationController(
     eventStore: IEventStore,
     bookingConfirmation: IBookingConfirmationSender,
@@ -17,26 +17,26 @@ type RegistrationController(
     jsonOptions: IOptions<JsonOptions>) as this =
     inherit ControllerBase()
 
-    let getReservationType eventKey slot =
+    let getSlotType eventKey slot =
         match slot.ClosingDate with
         | Some closingDate when timeProvider.GetLocalNow().DateTime >= closingDate ->
-            DataTransfer.ReservationTypeClosed() :> DataTransfer.ReservationType
+            DataTransfer.SlotTypeClosed() :> DataTransfer.SlotType
         | _ ->
             match slot.RemainingCapacity with
-            | Some v when v <= 0 -> DataTransfer.ReservationTypeTaken()
+            | Some v when v <= 0 -> DataTransfer.SlotTypeTaken()
             | remainingCapacity ->
                 let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
-                DataTransfer.ReservationTypeFree (
+                DataTransfer.SlotTypeFree (
                     url,
                     Option.toNullable slot.ClosingDate,
                     Option.toNullable slot.MaxQuantityPerBooking,
                     Option.toNullable remainingCapacity
                 )
 
-    let getScheduleEntry eventKey slot : DataTransfer.ScheduleEntry =
+    let getSlot eventKey slot : DataTransfer.Slot =
         {
             StartTime = slot.Time
-            ReservationType = getReservationType eventKey slot
+            Type = getSlotType eventKey slot
         }
 
     [<HttpGet("{eventKey?}")>]
@@ -44,13 +44,13 @@ type RegistrationController(
         match! eventStore.TryGetEvent eventKey with
         | None -> return this.NotFound() :> IActionResult
         | Some event ->
-            let! schedule = async {
+            let! eventDto = async {
                 if event.ReservationStartTime > timeProvider.GetLocalNow().DateTime then
-                    return DataTransfer.HiddenSchedule(event.Title, event.ReservationStartTime) :> DataTransfer.Schedule
+                    return DataTransfer.HiddenEvent(event.Title, event.ReservationStartTime) :> DataTransfer.Event
                 else
-                    return DataTransfer.ReleasedSchedule(event.Title, event.InfoText, [ for slot in event.Slots -> getScheduleEntry event.Key slot ])
+                    return DataTransfer.ReleasedEvent(event.Title, event.InfoText, [ for slot in event.Slots -> getSlot event.Key slot ])
             }
-            return this.Ok(JsonSerializer.SerializeToElement(schedule, jsonOptions.Value.JsonSerializerOptions))
+            return this.Ok(JsonSerializer.SerializeToElement(eventDto, jsonOptions.Value.JsonSerializerOptions))
     }
 
     [<HttpPost("{eventKey}/registration/{slot}")>]
@@ -87,9 +87,9 @@ type RegistrationController(
                                 }
                                 match remainingCapacity with
                                 | Error (CapacityExceeded remainingCapacity) ->
-                                    return this.BadRequest([{| Error = "capacity-exceeded"; ReservationType = getReservationType event.Key { slot with RemainingCapacity = Some remainingCapacity } |}])
+                                    return this.BadRequest([{| Error = "capacity-exceeded"; SlotType = getSlotType event.Key { slot with RemainingCapacity = Some remainingCapacity } |}])
                                 | Ok remainingCapacity ->
-                                    let newReservationType = getReservationType event.Key { slot with RemainingCapacity = remainingCapacity }
+                                    let newSlotType = getSlotType event.Key { slot with RemainingCapacity = remainingCapacity }
                                     let mailSettings = {
                                         Recipient = {
                                             Name = subscriber.Name
@@ -108,13 +108,13 @@ type RegistrationController(
                                     try
                                         do! bookingConfirmation.SendBookingConfirmation mailSettings
                                         let bookingResult: DataTransfer.BookingResult = {
-                                            ReservationType = newReservationType
+                                            SlotType = newSlotType
                                             MailSendError = false
                                         }
                                         return this.Ok(bookingResult)
                                     with _ ->
                                         let bookingResult: DataTransfer.BookingResult = {
-                                            ReservationType = newReservationType
+                                            SlotType = newSlotType
                                             MailSendError = true
                                         }
                                         return this.Ok(bookingResult)

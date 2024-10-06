@@ -1,22 +1,22 @@
-export type Schedule =
-  { type: 'hidden' } & HiddenSchedule
-  | { type: 'released' } & ReleasedSchedule
-export type HiddenSchedule = {
+export type Event =
+  { type: 'hidden' } & HiddenEvent
+  | { type: 'released' } & ReleasedEvent
+export type HiddenEvent = {
   title: string
   reservationStartTime: string
 }
-export type ReleasedSchedule = {
+export type ReleasedEvent = {
   title: string
   infoText: string
-  entries: ScheduleEntry[]
+  slots: Slot[]
 }
 
-export type ScheduleEntry = {
+export type Slot = {
   startTime: string
-  reservationType: ReservationType
+  type: SlotType
 }
 
-export type ReservationType = {
+export type SlotType = {
   type: 'free'
   url: string
   closingDate: string | null
@@ -29,9 +29,9 @@ export type ReservationType = {
 }
 
 export type BookingResult = {
-  reservationType: ReservationType
+  slotType: SlotType
   mailSendError: boolean
 }
 
 export type BookingError =
-  { error: 'capacity-exceeded', reservationType: ReservationType }
+  { error: 'capacity-exceeded', slotType: SlotType }

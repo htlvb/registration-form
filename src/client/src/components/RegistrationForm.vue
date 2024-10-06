@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import type { BookingError, BookingResult, ReleasedSchedule, ScheduleEntry } from '@/DataTransfer'
+import type { BookingError, BookingResult, ReleasedEvent, Slot } from '@/DataTransfer'
 import { uiFetch } from '@/UIFetch'
 import { DateTime } from '@/Utils'
 import _ from 'lodash'
@@ -8,7 +8,7 @@ import { computed, ref, watch } from 'vue'
 import LoadButton from './LoadButton.vue'
 
 const props = defineProps<{
-  schedule: ReleasedSchedule
+  event: ReleasedEvent
 }>()
 
 type SlotSummary = {
@@ -18,16 +18,16 @@ type SlotSummary = {
   hasTakenSlot: boolean
 }
 
-const summarizeSlots = (entries: ScheduleEntry[]) => {
-  return entries
+const summarizeSlots = (slots: Slot[]) => {
+  return slots
     .reduce((slotSummary, slot) => {
-      switch (slot.reservationType.type) {
+      switch (slot.type.type) {
         case 'free':
-            if (slot.reservationType.remainingCapacity === null) {
+            if (slot.type.remainingCapacity === null) {
               return { ...slotSummary, hasUnlimitedSlot: true }
             }
             else {
-              return { ...slotSummary, freeSlots: slotSummary.freeSlots + slot.reservationType.remainingCapacity }
+              return { ...slotSummary, freeSlots: slotSummary.freeSlots + slot.type.remainingCapacity }
             }
         case 'closed': return { ...slotSummary, hasClosedSlot: true }
         case 'taken': return { ...slotSummary, hasTakenSlot: true }
@@ -41,50 +41,50 @@ const summarizeSlots = (entries: ScheduleEntry[]) => {
 }
 
 const slotSummaries = computed(() =>
-  _(props.schedule.entries)
+  _(props.event.slots)
     .groupBy(v => new Date(v.startTime).toDateString())
     .map((v, k) => ({ date: k, ...summarizeSlots(v) }))
     .value()
 )
 
-const totalSlotSummary = computed(() => summarizeSlots(props.schedule.entries))
+const totalSlotSummary = computed(() => summarizeSlots(props.event.slots))
 
-const infoText = computed(() => marked.parse(props.schedule.infoText))
+const infoText = computed(() => marked.parse(props.event.infoText))
 
 const selectedDate = ref<string>()
-const selectedEntry = ref<ScheduleEntry>()
+const selectedSlot = ref<Slot>()
 const selectedQuantity = ref<number>()
 const contactName = ref<string>()
 const contactMailAddress = ref<string>()
 const contactPhoneNumber = ref<string>()
 
 watch(selectedDate, () => {
-  if (selectedEntry.value === undefined) return
+  if (selectedSlot.value === undefined) return
   if (selectedDate.value === undefined) {
-    selectedEntry.value = undefined
+    selectedSlot.value = undefined
     return
   }
   const selectedDateTime = new Date(selectedDate.value)
-  const selectedEntryTime = new Date(selectedEntry.value.startTime)
+  const selectedSlotTime = new Date(selectedSlot.value.startTime)
 
-  selectedEntry.value = props.schedule.entries
+  selectedSlot.value = props.event.slots
     .find(v =>
       DateTime.dateEquals(selectedDateTime, new Date(v.startTime))
-      && DateTime.timeEquals(selectedEntryTime, new Date(v.startTime))
+      && DateTime.timeEquals(selectedSlotTime, new Date(v.startTime))
     )
 })
 
-const selectedEntryFreeSlots = computed(() =>
+const selectedSlotMaxQuantity = computed(() =>
 {
-  if (selectedEntry.value === undefined) return 0
-  const reservationType = selectedEntry.value.reservationType
-  if (reservationType.type === 'taken' || reservationType.type === 'closed') return 0
-  if (reservationType.remainingCapacity === null) return reservationType.maxQuantityPerBooking || 15
-  if (reservationType.maxQuantityPerBooking === null) return reservationType.remainingCapacity || 15
-  return Math.min(reservationType.maxQuantityPerBooking, reservationType.remainingCapacity)
+  if (selectedSlot.value === undefined) return 0
+  const slotType = selectedSlot.value.type
+  if (slotType.type === 'taken' || slotType.type === 'closed') return 0
+  if (slotType.remainingCapacity === null) return slotType.maxQuantityPerBooking || 15
+  if (slotType.maxQuantityPerBooking === null) return slotType.remainingCapacity || 15
+  return Math.min(slotType.maxQuantityPerBooking, slotType.remainingCapacity)
 })
 
-watch(selectedEntryFreeSlots, freeSlots => {
+watch(selectedSlotMaxQuantity, freeSlots => {
   if (freeSlots === 1) {
     selectedQuantity.value = 1
   }
@@ -115,12 +115,12 @@ const registrationErrorMessages = ref([] as string[])
 const doRegister = async () => {
   isRegistered.value = false
   isConfirmationMailSent.value = undefined
-  if (selectedEntry.value === undefined) {
+  if (selectedSlot.value === undefined) {
     registrationErrorMessages.value = [ 'Bitte wählen Sie Datum und Uhrzeit aus.' ]
     return
   }
-  if (selectedEntry.value?.reservationType.type !== 'free') {
-    registrationErrorMessages.value = [ `Zum ausgewählten Zeitpunkt sind leider keine Plätze mehr frei. Bitte kontaktieren Sie uns unter <a href="mailto:office@htlvb.at?subject=${props.schedule.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
+  if (selectedSlot.value?.type.type !== 'free') {
+    registrationErrorMessages.value = [ `Zum ausgewählten Zeitpunkt sind leider keine Plätze mehr frei. Bitte kontaktieren Sie uns unter <a href="mailto:office@htlvb.at?subject=${props.event.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
     return
   }
   if (selectedQuantity.value === undefined) {
@@ -130,7 +130,7 @@ const doRegister = async () => {
 
   registrationErrorMessages.value = []
 
-  const result = await uiFetch(isRegistering, hasRegisteringFailed, selectedEntry.value.reservationType.url, {
+  const result = await uiFetch(isRegistering, hasRegisteringFailed, selectedSlot.value.type.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -149,23 +149,23 @@ const doRegister = async () => {
     contactMailAddress.value = undefined
     contactPhoneNumber.value = undefined
     const bookingResult = await result.response.json() as BookingResult
-    selectedEntry.value.reservationType = bookingResult.reservationType
+    selectedSlot.value.type = bookingResult.slotType
     isConfirmationMailSent.value = !bookingResult.mailSendError
-    if (selectedEntry.value.reservationType.type !== 'free') {
-      selectedEntry.value = undefined
+    if (selectedSlot.value.type.type !== 'free') {
+      selectedSlot.value = undefined
     }
   }
   else if (result.response !== undefined) {
     let errors = await result.response.json() as BookingError[]
     for (const error of errors) {
       if (error.error === 'capacity-exceeded') {
-        selectedEntry.value.reservationType = error.reservationType
+        selectedSlot.value.type = error.slotType
         registrationErrorMessages.value.push(`Die Reservierung konnte nicht gespeichert werden, weil nicht mehr genügend Plätze frei sind.`)
       }
     }
   }
   else {
-    registrationErrorMessages.value = [ `Beim Speichern der Registrierung ist ein Fehler aufgetreten. Bitte versuchen sie es erneut oder kontaktieren sie uns unter <a href="mailto:office@htlvb.at?subject=${props.schedule.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
+    registrationErrorMessages.value = [ `Beim Speichern der Registrierung ist ein Fehler aufgetreten. Bitte versuchen sie es erneut oder kontaktieren sie uns unter <a href="mailto:office@htlvb.at?subject=${props.event.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
   }
 }
 </script>
@@ -175,7 +175,7 @@ const doRegister = async () => {
     <span>
       Leider sind keine Termine mehr frei.
       Bitte kontaktieren sie uns unter
-      <a :href="`mailto:office@htlvb.at?subject=${props.schedule.title}`" class="underline">office@htlvb.at</a> bzw.
+      <a :href="`mailto:office@htlvb.at?subject=${props.event.title}`" class="underline">office@htlvb.at</a> bzw.
       <a href="tel:+43767224605" class="underline">07672/24605</a>.
     </span>
   </div>
@@ -210,37 +210,37 @@ const doRegister = async () => {
         <template v-if="selectedDate !== undefined">
           <h2 class="text-lg mt-4">Uhrzeit</h2>
           <div class="mt-2 flex flex-wrap gap-2">
-            <template v-for="entry in schedule.entries.filter(v => selectedDate !== undefined && DateTime.dateEquals(new Date(selectedDate), new Date(v.startTime)))"
-              :key="entry.startTime">
-              <template v-if="entry.reservationType.type === 'free'">
-                <button v-if="entry.reservationType.remainingCapacity === null" type="button" class="!flex flex-col items-center justify-center button"
-                  :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
-                  <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
+            <template v-for="slot in event.slots.filter(v => selectedDate !== undefined && DateTime.dateEquals(new Date(selectedDate), new Date(v.startTime)))"
+              :key="slot.startTime">
+              <template v-if="slot.type.type === 'free'">
+                <button v-if="slot.type.remainingCapacity === null" type="button" class="!flex flex-col items-center justify-center button"
+                  :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
+                  <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
                 </button>
                 <button v-else type="button" class="!flex flex-col items-center button"
-                  :class="{ 'button-htlvb-selected': selectedEntry === entry }" @click="selectedEntry = entry">
-                  <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
-                  <span class="text-sm">{{ pluralize(entry.reservationType.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
+                  :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
+                  <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
+                  <span class="text-sm">{{ pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
                 </button>
               </template>
-              <button v-else-if="entry.reservationType.type === 'closed'" type="button" :disabled="true" class="!flex flex-col items-center button">
-                <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
+              <button v-else-if="slot.type.type === 'closed'" type="button" :disabled="true" class="!flex flex-col items-center button">
+                <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
                 <span class="text-sm">geschlossen</span>
               </button>
-              <button v-else-if="entry.reservationType.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
-                <span>{{ DateTime.formatTime(new Date(entry.startTime)) }}</span>
+              <button v-else-if="slot.type.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
+                <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
                 <span class="text-sm">ausgebucht</span>
               </button>
             </template>
           </div>
-          <div v-if="selectedEntry !== undefined && selectedEntry.reservationType.type === 'free' && selectedEntry.reservationType.closingDate !== null" class="mt-2">
-            <span class="text-sm">Anmeldeschluss: {{ formatClosingDate(new Date(selectedEntry.reservationType.closingDate)) }}</span>
+          <div v-if="selectedSlot !== undefined && selectedSlot.type.type === 'free' && selectedSlot.type.closingDate !== null" class="mt-2">
+            <span class="text-sm">Anmeldeschluss: {{ formatClosingDate(new Date(selectedSlot.type.closingDate)) }}</span>
           </div>
         </template>
-        <template v-if="selectedEntryFreeSlots > 1">
+        <template v-if="selectedSlotMaxQuantity > 1">
           <h2 class="text-lg mt-4">Anzahl Personen</h2>
           <div class="mt-2 flex flex-wrap gap-2">
-            <button v-for="quantity in _.range(1, selectedEntryFreeSlots + 1)" :key="quantity" type="button" class="button"
+            <button v-for="quantity in _.range(1, selectedSlotMaxQuantity + 1)" :key="quantity" type="button" class="button"
               :class="{ 'button-htlvb-selected': selectedQuantity !== undefined && selectedQuantity >= quantity }"
               @click="selectedQuantity = quantity">
               {{ quantity }}
@@ -269,7 +269,7 @@ const doRegister = async () => {
             <span v-else class="text-yellow-500">
               Ihre Registrierung wurde erfolgreich gespeichert.<br />
               Eine Bestätigungsmail konnte aber aufgrund eines internen Fehlers nicht versendet werden.<br />
-              Sie können sich ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.schedule.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
+              Sie können sich ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
             </span>
           </template>
           <ul v-else-if="registrationErrorMessages.length > 0" class="text-red-500">

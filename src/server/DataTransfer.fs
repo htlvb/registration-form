@@ -5,40 +5,40 @@ open System.Text.Json.Serialization
 
 [<AbstractClass>]
 [<JsonPolymorphic(TypeDiscriminatorPropertyName = "type")>]
-[<JsonDerivedType(typeof<ReservationTypeFree>, "free")>]
-[<JsonDerivedType(typeof<ReservationTypeClosed>, "closed")>]
-[<JsonDerivedType(typeof<ReservationTypeTaken>, "taken")>]
-type ReservationType() = class end
-and ReservationTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
-    inherit ReservationType()
+[<JsonDerivedType(typeof<SlotTypeFree>, "free")>]
+[<JsonDerivedType(typeof<SlotTypeClosed>, "closed")>]
+[<JsonDerivedType(typeof<SlotTypeTaken>, "taken")>]
+type SlotType() = class end
+and SlotTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
+    inherit SlotType()
     member _.Url = url
     member _.ClosingDate = closingDate
     member _.MaxQuantityPerBooking = maxQuantityPerBooking
     member _.RemainingCapacity = remainingCapacity
-and ReservationTypeClosed() =
-    inherit ReservationType()
-and ReservationTypeTaken() =
-    inherit ReservationType()
+and SlotTypeClosed() =
+    inherit SlotType()
+and SlotTypeTaken() =
+    inherit SlotType()
 
-type ScheduleEntry = {
+type Slot = {
     StartTime: DateTime
-    ReservationType: ReservationType
+    Type: SlotType
 }
 
 [<AbstractClass>]
 [<JsonPolymorphic(TypeDiscriminatorPropertyName = "type")>]
-[<JsonDerivedType(typeof<HiddenSchedule>, "hidden")>]
-[<JsonDerivedType(typeof<ReleasedSchedule>, "released")>]
-type Schedule() = class end
-and HiddenSchedule(title: string, reservationStartTime: DateTime) =
-    inherit Schedule()
+[<JsonDerivedType(typeof<HiddenEvent>, "hidden")>]
+[<JsonDerivedType(typeof<ReleasedEvent>, "released")>]
+type Event() = class end
+and HiddenEvent(title: string, reservationStartTime: DateTime) =
+    inherit Event()
     member _.Title = title
     member _.ReservationStartTime = reservationStartTime
-and ReleasedSchedule(title: string, infoText: string, entries: ScheduleEntry list) =
-    inherit Schedule()
+and ReleasedEvent(title: string, infoText: string, slots: Slot list) =
+    inherit Event()
     member _.Title = title
     member _.InfoText = infoText
-    member _.Entries = entries
+    member _.Slots = slots
 
 type Subscriber = {
     Quantity: int
@@ -48,6 +48,6 @@ type Subscriber = {
 }
 
 type BookingResult = {
-    ReservationType: ReservationType
+    SlotType: SlotType
     MailSendError: bool
 }

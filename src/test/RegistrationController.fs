@@ -9,31 +9,31 @@ open System.Net.Http
 open System.Net.Http.Json
 open Xunit
 
-let private getSampleSchedule reservationStartTimeOffset = async {
+let private getSampleEvent reservationStartTimeOffset = async {
     use! server = InMemoryServer.start()
     use httpClient = server.GetTestClient()
     let reservationStartTime = FakeData.events.["tdot-2025"].ReservationStartTime
     server |> InMemoryServer.setTimeProviderTime (reservationStartTime + reservationStartTimeOffset)
-    return! httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/tdot-2025") |> Async.AwaitTask
+    return! httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/tdot-2025") |> Async.AwaitTask
 }
 
 [<Fact>]
-let ``Can get released schedule`` () = async {
-    let! schedule = getSampleSchedule TimeSpan.Zero
-    Assert.IsType<DataTransfer.ReleasedSchedule>(schedule) |> ignore
+let ``Can get released event`` () = async {
+    let! event = getSampleEvent TimeSpan.Zero
+    Assert.IsType<DataTransfer.ReleasedEvent>(event) |> ignore
 }
 
 [<Fact>]
-let ``Can get hidden schedule`` () = async {
-    let! schedule = getSampleSchedule (TimeSpan.FromSeconds -1.)
-    Assert.IsType<DataTransfer.HiddenSchedule>(schedule) |> ignore
+let ``Can get hidden event`` () = async {
+    let! event = getSampleEvent (TimeSpan.FromSeconds -1.)
+    Assert.IsType<DataTransfer.HiddenEvent>(event) |> ignore
 }
 
 [<Fact>]
 let ``Doesn't find non-existing event`` () = async {
     use! server = InMemoryServer.start()
     use httpClient = server.GetTestClient()
-    let! response = httpClient.GetAsync("/api/schedule/tdot-2026") |> Async.AwaitTask
+    let! response = httpClient.GetAsync("/api/event/tdot-2026") |> Async.AwaitTask
     Assert.Equal(enum StatusCodes.Status404NotFound, response.StatusCode)
 }
 
@@ -48,13 +48,13 @@ let private getSampleReservationData quantity : DataTransfer.Subscriber =
 let private makeSampleBooking server (httpClient: HttpClient) pickBookingQuantity = async {
     let reservationStartTime = FakeData.events.["tdot-2025"].ReservationStartTime
     server |> InMemoryServer.setTimeProviderTime reservationStartTime
-    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/tdot-2025") |> Async.AwaitTask
-    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/tdot-2025") |> Async.AwaitTask
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
     let (slotUrl, bookingQuantity) =
-        releasedSchedule.Entries
+        releasedEvent.Slots
         |> List.tryPick (fun v ->
-            match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v ->
+            match v.Type with
+            | :? DataTransfer.SlotTypeFree as v ->
                 match pickBookingQuantity v with
                 | Some bookingCapacity -> Some (v.Url, bookingCapacity)
                 | None -> None
@@ -100,8 +100,8 @@ let ``Can make two consecutive bookings when enough capacity`` () = async {
         else None
     )
     let! bookingResult = response.Content.ReadFromJsonAsync<DataTransfer.BookingResult>() |> Async.AwaitTask
-    let reservationTypeFree = bookingResult.ReservationType :?> DataTransfer.ReservationTypeFree
-    let! response = httpClient.PostAsJsonAsync(reservationTypeFree.Url, getSampleReservationData 1) |> Async.AwaitTask
+    let slotTypeFree = bookingResult.SlotType :?> DataTransfer.SlotTypeFree
+    let! response = httpClient.PostAsJsonAsync(slotTypeFree.Url, getSampleReservationData 1) |> Async.AwaitTask
     Assert.Equal(enum StatusCodes.Status200OK, response.StatusCode)
 }
 
@@ -113,8 +113,8 @@ let ``Can make booking when no capacity limit`` () = async {
         else None
     )
     let! bookingResult = response.Content.ReadFromJsonAsync<DataTransfer.BookingResult>() |> Async.AwaitTask
-    let reservationTypeFree = bookingResult.ReservationType :?> DataTransfer.ReservationTypeFree
-    Assert.Equal(None, Option.ofNullable reservationTypeFree.RemainingCapacity)
+    let slotTypeFree = bookingResult.SlotType :?> DataTransfer.SlotTypeFree
+    Assert.Equal(None, Option.ofNullable slotTypeFree.RemainingCapacity)
 }
 
 [<Fact>]
@@ -132,13 +132,13 @@ let makeBookingAroundClosingDate offset = async {
     use httpClient = server.GetTestClient()
     let reservationStartTime = FakeData.events.["lets-code-2425"].ReservationStartTime
     server |> InMemoryServer.setTimeProviderTime reservationStartTime
-    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/lets-code-2425") |> Async.AwaitTask
-    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/lets-code-2425") |> Async.AwaitTask
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
     let (slotUrl, closingDate) =
-        releasedSchedule.Entries
+        releasedEvent.Slots
         |> List.tryPick (fun v ->
-            match v.ReservationType with
-            | :? DataTransfer.ReservationTypeFree as v when v.ClosingDate.HasValue ->
+            match v.Type with
+            | :? DataTransfer.SlotTypeFree as v when v.ClosingDate.HasValue ->
                 Some (v.Url, v.ClosingDate.Value)
             | _ -> None
         )
@@ -174,11 +174,11 @@ let ``Can get closed slot`` () = async {
         |> Array.tryPick (fun v -> match v.ClosingDate with | Some closingDate -> Some (v.Time, closingDate) | None -> None)
         |> Option.defaultWith (fun () -> Assert.Fail("No slot with closing date found"); Unchecked.defaultof<_>)
     server |> InMemoryServer.setTimeProviderTime closingDate
-    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/lets-code-2425") |> Async.AwaitTask
-    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
-    let scheduleEntry =
-        releasedSchedule.Entries
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/lets-code-2425") |> Async.AwaitTask
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
+    let slot =
+        releasedEvent.Slots
         |> List.tryFind (fun v -> v.StartTime = slotTime)
         |> Option.defaultWith (fun () -> Assert.Fail("Slot no longer found"); Unchecked.defaultof<_>)
-    Assert.IsType<DataTransfer.ReservationTypeClosed>(scheduleEntry.ReservationType) |> ignore
+    Assert.IsType<DataTransfer.SlotTypeClosed>(slot.Type) |> ignore
 }
