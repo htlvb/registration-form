@@ -22,7 +22,12 @@ type RegistrationController(
         | Some v when v <= 0 -> DataTransfer.ReservationTypeTaken() :> DataTransfer.ReservationType
         | remainingCapacity ->
             let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
-            DataTransfer.ReservationTypeFree (url, Option.toNullable slot.MaxQuantityPerBooking, Option.toNullable remainingCapacity)
+            DataTransfer.ReservationTypeFree (
+                url,
+                Option.toNullable slot.ClosingDate,
+                Option.toNullable slot.MaxQuantityPerBooking,
+                Option.toNullable remainingCapacity
+            )
 
     let getScheduleEntry eventKey slot : DataTransfer.ScheduleEntry =
         {
@@ -52,9 +57,11 @@ type RegistrationController(
             match DateTime.TryParseExact(slot, "yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture, DateTimeStyles.None) with
             | (false, _) -> return this.BadRequest() :> IActionResult
             | (true, slotTime) ->
+                let now = timeProvider.GetLocalNow().DateTime
                 let slot = event.Slots |> Seq.tryFind (fun v -> v.Time = slotTime)
                 match slot with
                 | None -> return this.NotFound()
+                | Some { ClosingDate = Some closingDate } when closingDate <= now -> return this.BadRequest()
                 | Some slot ->
                     match Subscriber.validate subscriber with
                     | Error _ -> return this.BadRequest()
@@ -63,7 +70,6 @@ type RegistrationController(
                         | Some maxQuantityPerBooking when subscriber.Quantity > maxQuantityPerBooking ->
                             return this.BadRequest ()
                         | _ ->
-                            let now = timeProvider.GetLocalNow().DateTime
                             if now < event.ReservationStartTime || now > slotTime then
                                 return this.BadRequest ()
                             else

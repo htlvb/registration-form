@@ -6,6 +6,7 @@ open Npgsql
 
 type DbEventSlot = {
     time: DateTime
+    closing_date: Nullable<DateTime>
     max_quantity_per_booking: Nullable<int>
     remaining_capacity: Nullable<int>
 }
@@ -14,6 +15,7 @@ module DbEventSlot =
     let toDomain (dbEventSlot: DbEventSlot) : Domain.Slot =
         {
             Time = dbEventSlot.time
+            ClosingDate = Option.ofNullable dbEventSlot.closing_date
             MaxQuantityPerBooking = Option.ofNullable dbEventSlot.max_quantity_per_booking
             RemainingCapacity = Option.ofNullable dbEventSlot.remaining_capacity
         }
@@ -60,7 +62,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, mail_subject, mail_content_template FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
             match Seq.toList dbEvents with
             | [ dbEvent ] ->
-                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, max_quantity_per_booking, remaining_capacity FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, closing_date, max_quantity_per_booking, remaining_capacity FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
                 return DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots) |> Some
             | _ -> return None
         }

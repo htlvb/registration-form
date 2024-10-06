@@ -30,6 +30,9 @@ ALTER TABLE schedule RENAME TO event_registration;
 ALTER TABLE event_registration ADD COLUMN event_key VARCHAR NOT NULL;
 ALTER TABLE event_registration ADD FOREIGN KEY (event_key) REFERENCES event(key);
 
+-- Add closing date
+ALTER TABLE event_slot ADD COLUMN closing_date TIMESTAMP;
+
 -- Clean up
 /*
 DROP TABLE event_registration;

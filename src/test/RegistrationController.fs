@@ -175,3 +175,41 @@ let ``Can't make booking when quantity > max quantity per booking`` () = async {
     let! response = httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
     Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
 }
+
+let makeBookingAroundClosingDate offset = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let reservationStartTime = FakeData.events.["lets-code-2425"].ReservationStartTime
+    server |> InMemoryServer.setTimeProviderTime reservationStartTime
+    let! schedule = httpClient.GetFromJsonAsync<DataTransfer.Schedule>("/api/schedule/lets-code-2425") |> Async.AwaitTask
+    let releasedSchedule = schedule :?> DataTransfer.ReleasedSchedule
+    let (slotUrl, closingDate) =
+        releasedSchedule.Entries
+        |> List.tryPick (fun v ->
+            match v.ReservationType with
+            | :? DataTransfer.ReservationTypeFree as v when v.ClosingDate.HasValue ->
+                Some (v.Url, v.ClosingDate.Value)
+            | _ -> None
+        )
+        |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
+    server |> InMemoryServer.setTimeProviderTime (closingDate + offset)
+    let reservationData : DataTransfer.Subscriber = {
+        Name = "Albert"
+        MailAddress = "albert@einstein.com"
+        PhoneNumber = "07612/123456789"
+        Quantity = 1
+    }
+    return! httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
+}
+
+[<Fact>]
+let ``Can make booking before closing date`` () = async {
+    let! response = makeBookingAroundClosingDate (TimeSpan.FromSeconds -1.)
+    Assert.Equal(enum StatusCodes.Status200OK, response.StatusCode)
+}
+
+[<Fact>]
+let ``Can't make booking after closing date`` () = async {
+    let! response = makeBookingAroundClosingDate (TimeSpan.Zero)
+    Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
+}

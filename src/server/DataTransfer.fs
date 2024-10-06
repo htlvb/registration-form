@@ -8,9 +8,10 @@ open System.Text.Json.Serialization
 [<JsonDerivedType(typeof<ReservationTypeFree>, "free")>]
 [<JsonDerivedType(typeof<ReservationTypeTaken>, "taken")>]
 type ReservationType() = class end
-and ReservationTypeFree(url: string, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
+and ReservationTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
     inherit ReservationType()
     member _.Url = url
+    member _.ClosingDate = closingDate
     member _.MaxQuantityPerBooking = maxQuantityPerBooking
     member _.RemainingCapacity = remainingCapacity
 and ReservationTypeTaken() =
