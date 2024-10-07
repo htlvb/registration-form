@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { uiFetch } from './UIFetch'
 import type { Event } from './DataTransfer'
 import LoadingBar from './components/LoadingBar.vue'
@@ -18,6 +18,16 @@ const loadEvent = async () => {
   }
 }
 loadEvent()
+
+const reservationStartTime = computed(() => {
+  if (event.value?.type !== 'hidden') return undefined
+
+  const time = new Date(event.value.reservationStartTime)
+  if (time.getHours() === 0 && time.getMinutes() === 0 && time.getSeconds() === 0 && time.getMilliseconds() === 0) {
+    return DateTime.formatDate(time, { weekday: 'long' })
+  }
+  return DateTime.format(time, { weekday: 'long' })
+})
 </script>
 
 <template>
@@ -34,7 +44,7 @@ loadEvent()
     <div class="max-w-screen-lg mx-auto">
       <LoadingBar v-if="isLoadingEvent" class="m-4" />
       <ErrorWithRetry v-else-if="hasLoadingEventFailed" @retry="loadEvent" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
-      <ErrorWithRetry v-else-if="event?.type === 'hidden'" @retry="loadEvent" class="m-4">Die Registrierung ist ab {{ DateTime.format(new Date(event.reservationStartTime), { weekday: 'long' }) }} Uhr möglich.</ErrorWithRetry>
+      <ErrorWithRetry v-else-if="event?.type === 'hidden'" @retry="loadEvent" class="m-4">Die Registrierung ist ab {{ reservationStartTime }} Uhr möglich.</ErrorWithRetry>
       <RegistrationForm v-else-if="event?.type === 'released'" :event="event" />
     </div>
   </main>
