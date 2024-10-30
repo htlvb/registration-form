@@ -33,89 +33,73 @@ type RegistrationController(
                     Option.toNullable remainingCapacity
                 )
 
-    let getSlot eventKey slot : DataTransfer.Slot =
-        {
-            StartTime = slot.Time
-            Type = getSlotType eventKey slot
-        }
+    let getSlotUrl eventKey slot =
+        this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.StartTime.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
 
     [<HttpGet("{eventKey?}")>]
     member this.GetRegistrations (eventKey: string) = async {
         match! eventStore.TryGetEvent eventKey with
         | None -> return this.NotFound() :> IActionResult
         | Some event ->
-            let! eventDto = async {
-                if event.ReservationStartTime > timeProvider.GetLocalNow().DateTime then
-                    return DataTransfer.HiddenEvent(event.Title, event.ReservationStartTime) :> DataTransfer.Event
-                else
-                    return DataTransfer.ReleasedEvent(event.Title, event.InfoText, [ for slot in event.Slots -> getSlot event.Key slot ])
-            }
-            return this.Ok(JsonSerializer.SerializeToElement(eventDto, jsonOptions.Value.JsonSerializerOptions))
+            return
+                event
+                |> Event.fromEventData timeProvider
+                |> DtoMapping.Event.fromDomain (getSlotUrl eventKey)
+                |> fun eventDto -> JsonSerializer.SerializeToElement(eventDto, jsonOptions.Value.JsonSerializerOptions)
+                |> this.Ok
+                :> IActionResult
     }
 
     [<HttpPost("{eventKey}/registration/{slot}")>]
     member this.CreateRegistration (eventKey: string, slot: string, [<FromBody()>] subscriber: DataTransfer.Subscriber) = async {
-        match! eventStore.TryGetEvent eventKey with
-        | None -> return this.NotFound() :> IActionResult
-        | Some event ->
-            match DateTime.TryParseExact(slot, "yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture, DateTimeStyles.None) with
-            | (false, _) -> return this.BadRequest() :> IActionResult
-            | (true, slotTime) ->
-                let now = timeProvider.GetLocalNow().DateTime
-                let slot = event.Slots |> Seq.tryFind (fun v -> v.Time = slotTime)
-                match slot with
-                | None -> return this.NotFound()
-                | Some { ClosingDate = Some closingDate } when closingDate <= now -> return this.BadRequest()
-                | Some slot ->
-                    match Subscriber.validate subscriber with
-                    | Error _ -> return this.BadRequest()
-                    | Ok subscriber ->
-                        match slot.MaxQuantityPerBooking with
-                        | Some maxQuantityPerBooking when subscriber.Quantity > maxQuantityPerBooking ->
-                            return this.BadRequest ()
-                        | _ ->
-                            if now < event.ReservationStartTime || now > slotTime then
-                                return this.BadRequest ()
-                            else
-                                let! remainingCapacity = eventStore.TryBook event.Key {
-                                    time = slotTime
-                                    quantity = subscriber.Quantity
-                                    name = subscriber.Name
-                                    mail_address = subscriber.MailAddress
-                                    phone_number = subscriber.PhoneNumber
-                                    time_stamp = now
-                                }
-                                match remainingCapacity with
-                                | Error (CapacityExceeded remainingCapacity) ->
-                                    return this.BadRequest([{| Error = "capacity-exceeded"; SlotType = getSlotType event.Key { slot with RemainingCapacity = Some remainingCapacity } |}])
-                                | Ok remainingCapacity ->
-                                    let newSlotType = getSlotType event.Key { slot with RemainingCapacity = remainingCapacity }
-                                    let mailSettings = {
-                                        Recipient = {
-                                            Name = subscriber.Name
-                                            MailAddress = subscriber.MailAddress
-                                        }
-                                        Subject =  event.MailSubject
-                                        Content =
-                                            let templateVars = [
-                                                "FullName", subscriber.Name
-                                                "Date", slot.Time.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
-                                                "Time", slot.Time.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
-                                            ]
-                                            (event.MailContentTemplate, templateVars)
-                                            ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
-                                    }
-                                    try
-                                        do! bookingConfirmation.SendBookingConfirmation mailSettings
-                                        let bookingResult: DataTransfer.BookingResult = {
-                                            SlotType = newSlotType
-                                            MailSendError = false
-                                        }
-                                        return this.Ok(bookingResult)
-                                    with _ ->
-                                        let bookingResult: DataTransfer.BookingResult = {
-                                            SlotType = newSlotType
-                                            MailSendError = true
-                                        }
-                                        return this.Ok(bookingResult)
+        let! eventData = eventStore.TryGetEvent eventKey
+        match DtoParsing.Subscriber.parse timeProvider eventData slot subscriber with
+        | Error errors -> return this.BadRequest(errors |> List.map DtoMapping.BookingValidationError.fromDomain) :> IActionResult
+        | Ok (event, slot, subscriber) ->
+            let! remainingCapacity = eventStore.TryBook event.Key {
+                time = slot.StartTime
+                quantity = subscriber.Quantity.Value
+                name = subscriber.Name.Value
+                mail_address = subscriber.MailAddress.Value
+                phone_number = subscriber.PhoneNumber.Value
+                time_stamp = timeProvider.GetLocalNow().DateTime
+            }
+            match remainingCapacity with
+            | Error (CapacityExceeded remainingCapacity) ->
+                let newSlotType =
+                    SlotType.setCapacity slot.Type (Some remainingCapacity)
+                    |> DtoMapping.SlotType.fromDomain (getSlotUrl event.Key slot)
+                return this.BadRequest([{| Error = "capacity-exceeded"; SlotType = newSlotType |}])
+            | Ok remainingCapacity ->
+                let newSlotType =
+                    SlotType.setCapacity slot.Type remainingCapacity
+                    |> DtoMapping.SlotType.fromDomain (getSlotUrl event.Key slot)
+                let mailSettings = {
+                    Recipient = {
+                        Name = subscriber.Name.Value
+                        MailAddress = subscriber.MailAddress.Value
+                    }
+                    Subject =  event.MailSubject
+                    Content =
+                        let templateVars = [
+                            "FullName", subscriber.Name.Value
+                            "Date", slot.StartTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
+                            "Time", slot.StartTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                        ]
+                        (event.MailContentTemplate, templateVars)
+                        ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+                }
+                try
+                    do! bookingConfirmation.SendBookingConfirmation mailSettings
+                    let bookingResult: DataTransfer.BookingResult = {
+                        SlotType = newSlotType
+                        MailSendError = false
+                    }
+                    return this.Ok(bookingResult)
+                with _ ->
+                    let bookingResult: DataTransfer.BookingResult = {
+                        SlotType = newSlotType
+                        MailSendError = true
+                    }
+                    return this.Ok(bookingResult)
     }

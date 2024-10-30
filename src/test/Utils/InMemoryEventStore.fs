@@ -16,7 +16,7 @@ type InMemoryEventStore(events, eventRegistrations) =
             let remainingCapacity =
                 match Map.tryFind eventKey events with
                 | None -> Some 0
-                |Some event ->
+                | Some event ->
                     event.Slots
                     |> Seq.tryFind (fun v -> v.Time = data.time)
                     |> function

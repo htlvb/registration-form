@@ -52,7 +52,7 @@ let private makeSampleBooking server (httpClient: HttpClient) pickBookingQuantit
     let releasedEvent = event :?> DataTransfer.ReleasedEvent
     let (slotUrl, bookingQuantity) =
         releasedEvent.Slots
-        |> List.tryPick (fun v ->
+        |> Array.tryPick (fun v ->
             match v.Type with
             | :? DataTransfer.SlotTypeFree as v ->
                 match pickBookingQuantity v with
@@ -136,7 +136,7 @@ let makeBookingAroundClosingDate offset = async {
     let releasedEvent = event :?> DataTransfer.ReleasedEvent
     let (slotUrl, closingDate) =
         releasedEvent.Slots
-        |> List.tryPick (fun v ->
+        |> Array.tryPick (fun v ->
             match v.Type with
             | :? DataTransfer.SlotTypeFree as v when v.ClosingDate.HasValue ->
                 Some (v.Url, v.ClosingDate.Value)
@@ -178,7 +178,7 @@ let ``Can get closed slot`` () = async {
     let releasedEvent = event :?> DataTransfer.ReleasedEvent
     let slot =
         releasedEvent.Slots
-        |> List.tryFind (fun v -> v.StartTime = slotTime)
+        |> Array.tryFind (fun v -> v.StartTime = slotTime)
         |> Option.defaultWith (fun () -> Assert.Fail("Slot no longer found"); Unchecked.defaultof<_>)
     Assert.IsType<DataTransfer.SlotTypeClosed>(slot.Type) |> ignore
 }

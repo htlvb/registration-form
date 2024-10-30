@@ -12,7 +12,7 @@ type DbEventSlot = {
 }
 
 module DbEventSlot =
-    let toDomain (dbEventSlot: DbEventSlot) : Domain.Slot =
+    let toDomain (dbEventSlot: DbEventSlot) : Domain.SlotData =
         {
             Time = dbEventSlot.time
             ClosingDate = Option.ofNullable dbEventSlot.closing_date
@@ -30,7 +30,7 @@ type DbEvent = {
 }
 
 module DbEvent =
-    let toDomain dbEvent dbEventSlots : Domain.Event =
+    let toDomain dbEvent dbEventSlots : Domain.EventData =
         {
             Key = dbEvent.key
             Title = dbEvent.title
@@ -51,7 +51,7 @@ type EventRegistration = {
 }
 
 type IEventStore =
-    abstract member TryGetEvent: eventKey: string -> Async<Domain.Event option>
+    abstract member TryGetEvent: eventKey: string -> Async<Domain.EventData option>
     abstract member GetEventRegistrations: eventKey: string -> Async<EventRegistration list>
     abstract member TryBook: eventKey: string -> data: EventRegistration -> Async<Result<int option, Domain.BookingError>>
 

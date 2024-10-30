@@ -34,7 +34,7 @@ and HiddenEvent(title: string, reservationStartTime: DateTime) =
     inherit Event()
     member _.Title = title
     member _.ReservationStartTime = reservationStartTime
-and ReleasedEvent(title: string, infoText: string, slots: Slot list) =
+and ReleasedEvent(title: string, infoText: string, slots: Slot[]) =
     inherit Event()
     member _.Title = title
     member _.InfoText = infoText

@@ -38,7 +38,8 @@ Komm vorbei und entdecke, wie viel Spaß es macht, die digitale Welt aktiv mitzu
         '{{{FullName}}},
 
 vielen Dank für die Anmeldung zum Programmierworkshop "Let''s code" der HTL Vöcklabruck am {{{Date}}}.
-Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir dich, uns sobald wie möglich Bescheid zu geben.\Du kannst dafür auf diese E-Mail antworten oder uns unter 07672/24605 anrufen.
+Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir dich, uns sobald wie möglich Bescheid zu geben.
+Du kannst dafür auf diese E-Mail antworten oder uns unter 07672/24605 anrufen.
 
 Wir freuen uns auf dich.'
     );
