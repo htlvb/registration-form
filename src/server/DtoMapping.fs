@@ -27,11 +27,11 @@ module Event =
         | Domain.ReleasedEvent v -> DataTransfer.ReleasedEvent(v.Title, v.InfoText, [| for slot in v.Slots -> Slot.fromDomain (getSlotUrl slot) slot |]) :> DataTransfer.Event
 
 module BookingValidationError =
-    let fromDomain = function
-        | Domain.EventNotFound -> {| Error = "event-not-found" |}
+    let fromDomain getSlotUrl = function
+        | Domain.EventNotFound -> {| Error = "event-not-found" |} :> obj
         | Domain.EventNotReleased -> {| Error = "event-not-released" |}
         | Domain.SlotNotFound -> {| Error = "slot-not-found" |}
-        | Domain.SlotNotFree -> {| Error = "slot-not-free" |}
+        | Domain.SlotNotFree slot -> {| Error = "slot-not-free"; SlotType = Slot.fromDomain (getSlotUrl slot) slot |> _.Type |}
         | Domain.InvalidSubscriptionQuantity -> {| Error = "invalid-subscription-quantity" |}
         | Domain.InvalidSubscriberName -> {| Error = "invalid-subscriber-name" |}
         | Domain.InvalidMailAddress -> {| Error = "invalid-mail-address" |}

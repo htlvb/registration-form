@@ -54,7 +54,7 @@ type RegistrationController(
     member this.CreateRegistration (eventKey: string, slot: string, [<FromBody()>] subscriber: DataTransfer.Subscriber) = async {
         let! eventData = eventStore.TryGetEvent eventKey
         match DtoParsing.Subscriber.parse timeProvider eventData slot subscriber with
-        | Error errors -> return this.BadRequest(errors |> List.map DtoMapping.BookingValidationError.fromDomain) :> IActionResult
+        | Error errors -> return this.BadRequest(errors |> List.map (DtoMapping.BookingValidationError.fromDomain (getSlotUrl eventKey))) :> IActionResult
         | Ok (event, slot, subscriber) ->
             let! remainingCapacity = eventStore.TryBook event.Key {
                 time = slot.StartTime

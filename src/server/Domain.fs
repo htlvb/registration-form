@@ -131,7 +131,7 @@ type BookingValidationError =
     | EventNotFound
     | EventNotReleased
     | SlotNotFound
-    | SlotNotFree
+    | SlotNotFree of Slot
     | InvalidSubscriptionQuantity
     | InvalidSubscriberName
     | InvalidMailAddress

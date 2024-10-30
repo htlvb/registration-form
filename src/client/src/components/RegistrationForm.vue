@@ -167,9 +167,40 @@ const doRegister = async () => {
   else if (result.response !== undefined) {
     let errors = await result.response.json() as BookingError[]
     for (const error of errors) {
-      if (error.error === 'capacity-exceeded') {
-        selectedSlot.value.type = error.slotType
-        registrationErrorMessages.value.push(`Die Reservierung konnte nicht gespeichert werden, weil nicht mehr genügend Plätze frei sind.`)
+      switch (error.error)
+      {
+        case 'event-not-found':
+          registrationErrorMessages.value.push('Das Event wurde nicht gefunden.')
+          break
+        case 'event-not-released':
+          registrationErrorMessages.value.push('Die Reservierung ist noch nicht geöffnet.')
+          break
+        case 'slot-not-found':
+          registrationErrorMessages.value.push('Der Slot wurde nicht gefunden.')
+          break
+        case 'slot-not-free':
+          selectedSlot.value.type = error.slotType
+          registrationErrorMessages.value.push('Der Slot kann nicht reserviert werden.')
+          break
+        case 'invalid-subscription-quantity':
+          registrationErrorMessages.value.push('Bitte wählen Sie eine Anzahl aus.')
+          break
+        case 'invalid-subscriber-name':
+          registrationErrorMessages.value.push('Bitte geben Sie Ihren Namen ein.')
+          break
+        case 'invalid-mail-address':
+          registrationErrorMessages.value.push('Bitte geben Sie Ihre E-Mail-Adresse ein.')
+          break
+        case 'invalid-phone-number':
+          registrationErrorMessages.value.push('Bitte geben Sie Ihre Telefonnummer ein.')
+          break
+        case 'max-quantity-per-booking-exceeded':
+          registrationErrorMessages.value.push('Bitte wählen Sie eine Anzahl aus.')
+          break
+        case 'capacity-exceeded':
+          selectedSlot.value.type = error.slotType
+          registrationErrorMessages.value.push('Zum ausgewählten Zeitpunkt sind leider nicht mehr genügend Plätze frei.')
+          break
       }
     }
   }

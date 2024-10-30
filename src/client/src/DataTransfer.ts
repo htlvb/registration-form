@@ -35,4 +35,13 @@ export type BookingResult = {
 }
 
 export type BookingError =
-  { error: 'capacity-exceeded', slotType: SlotType }
+  | { error: 'event-not-found' }
+  | { error: 'event-not-released' }
+  | { error: 'slot-not-found' }
+  | { error: 'slot-not-free', slotType: SlotType }
+  | { error: 'invalid-subscription-quantity' }
+  | { error: 'invalid-subscriber-name' }
+  | { error: 'invalid-mail-address' }
+  | { error: 'invalid-phone-number' }
+  | { error: 'max-quantity-per-booking-exceeded' }
+  | { error: 'capacity-exceeded', slotType: SlotType }
