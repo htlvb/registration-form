@@ -17,6 +17,7 @@ module SlotType =
 module Slot =
     let fromDomain slotUrl (slot: Domain.Slot) : DataTransfer.Slot = {
         StartTime = slot.StartTime
+        Duration = Option.toNullable slot.Duration
         Type = SlotType.fromDomain slotUrl slot.Type
     }
 

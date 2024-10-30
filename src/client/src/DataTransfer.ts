@@ -13,6 +13,7 @@ export type ReleasedEvent = {
 
 export type Slot = {
   startTime: string
+  duration: string | null
   type: SlotType
 }
 

@@ -33,6 +33,9 @@ ALTER TABLE event_registration ADD FOREIGN KEY (event_key) REFERENCES event(key)
 -- Add closing date
 ALTER TABLE event_slot ADD COLUMN closing_date TIMESTAMP;
 
+-- Add optional slot duration
+ALTER TABLE event_slot ADD COLUMN duration INTERVAL;
+
 -- Clean up
 /*
 DROP TABLE event_registration;

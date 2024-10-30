@@ -4,6 +4,7 @@ open System
 
 type SlotData = {
     Time: DateTime
+    Duration: TimeSpan option
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
@@ -41,11 +42,12 @@ module SlotType =
                 |}
 type Slot = {
     StartTime: DateTime
+    Duration: TimeSpan option
     Type: SlotType
 }
 module Slot =
     let fromSlotData (timeProvider: TimeProvider) slotData =
-        { StartTime = slotData.Time; Type = SlotType.fromSlotData timeProvider slotData }
+        { StartTime = slotData.Time; Duration = slotData.Duration; Type = SlotType.fromSlotData timeProvider slotData }
 
 type EventData = {
     Key: string

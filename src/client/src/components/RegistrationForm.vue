@@ -93,6 +93,15 @@ watch(selectedSlotMaxQuantity, freeSlots => {
   }
 })
 
+const formatSlotTime = (slot: Slot) => {
+  if (slot.duration !== null) {
+    const startTime = new Date(slot.startTime)
+    const endTime = DateTime.addTimeSpan(startTime, slot.duration)
+    return `${DateTime.formatTime(startTime)} - ${DateTime.formatTime(endTime)}`
+  }
+  return DateTime.formatTime(new Date(slot.startTime))
+}
+
 const formatClosingDate = (v: Date) => {
   if (v.getHours() === 0 && v.getMinutes() === 0 && v.getSeconds() === 0 && v.getMilliseconds() === 0) {
     return DateTime.formatDate(new Date(v.getTime() - 1), { weekday: 'short' })
@@ -215,20 +224,20 @@ const doRegister = async () => {
               <template v-if="slot.type.type === 'free'">
                 <button v-if="slot.type.remainingCapacity === null" type="button" class="!flex flex-col items-center justify-center button"
                   :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
-                  <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
+                  <span>{{ formatSlotTime(slot) }}</span>
                 </button>
                 <button v-else type="button" class="!flex flex-col items-center button"
                   :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
-                  <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
+                  <span>{{ formatSlotTime(slot) }}</span>
                   <span class="text-sm">{{ pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
                 </button>
               </template>
               <button v-else-if="slot.type.type === 'closed'" type="button" :disabled="true" class="!flex flex-col items-center button">
-                <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
+                <span>{{ formatSlotTime(slot) }}</span>
                 <span class="text-sm">geschlossen</span>
               </button>
               <button v-else-if="slot.type.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
-                <span>{{ DateTime.formatTime(new Date(slot.startTime)) }}</span>
+                <span>{{ formatSlotTime(slot) }}</span>
                 <span class="text-sm">ausgebucht</span>
               </button>
             </template>

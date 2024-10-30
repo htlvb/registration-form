@@ -43,6 +43,6 @@ Du kannst dafür auf diese E-Mail antworten oder uns unter 07672/24605 anrufen.
 
 Wir freuen uns auf dich.'
     );
-INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity) VALUES
-    ('lets-code-2425', '2024-12-18 13:30:00', 1, 20),
-    ('lets-code-2425', '2025-01-11 08:00:00', 1, 20);
+INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, remaining_capacity) VALUES
+    ('lets-code-2425', '2024-12-17 14:00:00', '2 hours 30 minutes', 1, 20),
+    ('lets-code-2425', '2025-01-11 08:00:00', '2 hours 15 minutes', 1, 20);

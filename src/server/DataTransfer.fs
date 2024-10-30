@@ -22,6 +22,7 @@ and SlotTypeTaken() =
 
 type Slot = {
     StartTime: DateTime
+    Duration: Nullable<TimeSpan>
     Type: SlotType
 }
 

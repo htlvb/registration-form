@@ -1,4 +1,4 @@
-export module DateTime {
+export namespace DateTime {
   export const formatDate = (v: Date, formatOptions?: Intl.DateTimeFormatOptions) => {
     const defaultOptions: Intl.DateTimeFormatOptions = {
       year: 'numeric',
@@ -39,5 +39,17 @@ export module DateTime {
 
   export const timeEquals = (a: Date, b: Date) => {
     return a.toTimeString() === b.toTimeString()
+  }
+
+  export const addTimeSpan = (date: Date, time: string) => {
+    const [_all, daysText, hoursText, minutesText, secondsText, millisecondsText] = time.match(/^(?:(\d+)\.)?(\d+):(\d+):(\d+)(?:\.(\d+))?$/) || []
+    const [days, hours, minutes, seconds, milliseconds] = [
+      daysText === undefined ? 0 : parseInt(daysText),
+      hoursText === undefined ? 0 : parseInt(hoursText),
+      minutesText === undefined ? 0 : parseInt(minutesText),
+      secondsText === undefined ? 0 : parseInt(secondsText),
+      millisecondsText === undefined ? 0 : parseInt(millisecondsText),
+    ]
+    return new Date(date.getTime() + ((((days * 24 + hours) * 60) + minutes) * 60 + seconds) * 1000 + milliseconds)
   }
 }
