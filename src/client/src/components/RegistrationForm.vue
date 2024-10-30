@@ -171,7 +171,7 @@ const doRegister = async () => {
 </script>
 
 <template>
-  <div v-if="totalSlotSummary.freeSlots === 0 && !isRegistered && !isRegistering && registrationErrorMessages.length === 0" class="flex justify-center items-center gap-2 p-4 rounded text-white font-semibold">
+  <div v-if="totalSlotSummary.freeSlots === 0 && !isRegistered && !isRegistering && registrationErrorMessages.length === 0" class="flex justify-center items-center gap-2 p-4 rounded font-semibold">
     <span>
       Leider sind keine Termine mehr frei.
       Bitte kontaktieren sie uns unter
