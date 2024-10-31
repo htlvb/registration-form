@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import _ from 'lodash'
 import type { Slot } from '@/DataTransfer'
-import { DateTime } from '@/Utils'
+import { DateTime, Text } from '@/Utils'
+import SlotTimeSelection from './SlotTimeSelection.vue'
 
 const props = defineProps<{
     slots: Slot[]
@@ -40,7 +41,7 @@ const summarizeSlots = (slots: Slot[]) => {
 const slotSummaries = computed(() =>
   _(props.slots)
     .groupBy(v => new Date(v.startTime).toDateString())
-    .map((v, k) => ({ date: k, ...summarizeSlots(v) }))
+    .map((v, k) => ({ date: k, slots: v, ...summarizeSlots(v) }))
     .value()
 )
 
@@ -48,19 +49,25 @@ const selectedDate = ref<string>()
 const selectedSlot = defineModel<Slot>()
 
 watch(selectedDate, () => {
-  if (selectedSlot.value === undefined) return
   if (selectedDate.value === undefined) {
     selectedSlot.value = undefined
     return
   }
   const selectedDateTime = new Date(selectedDate.value)
-  const selectedSlotTime = new Date(selectedSlot.value.startTime)
+  const dateSlots = props.slots.filter(v => DateTime.dateEquals(selectedDateTime, new Date(v.startTime)))
+  if (dateSlots.length === 1) {
+    selectedSlot.value = dateSlots[0]
+  }
+  else if (selectedSlot.value !== undefined) {
+    const selectedSlotTime = new Date(selectedSlot.value.startTime)
+    selectedSlot.value = dateSlots.find(v => DateTime.timeEquals(selectedSlotTime, new Date(v.startTime)))
+  }
+})
 
-  selectedSlot.value = props.slots
-    .find(v =>
-      DateTime.dateEquals(selectedDateTime, new Date(v.startTime))
-      && DateTime.timeEquals(selectedSlotTime, new Date(v.startTime))
-    )
+const selectedDateSlots = computed(() => {
+  if (selectedDate.value === undefined) return []
+  const date = new Date(selectedDate.value)
+  return props.slots.filter(v => DateTime.dateEquals(date, new Date(v.startTime)))
 })
 
 const formatSlotTime = (slot: Slot) => {
@@ -78,13 +85,6 @@ const formatClosingDate = (v: Date) => {
   }
   return DateTime.format(v, { weekday: 'short' })
 }
-
-const pluralize = (v: number, singularText: string, pluralText: string) => {
-  if (v === 1) {
-    return `${v} ${singularText}`
-  }
-  return `${v} ${pluralText}`
-}
 </script>
 
 <template>
@@ -92,17 +92,13 @@ const pluralize = (v: number, singularText: string, pluralText: string) => {
     <h2 class="text-lg">Datum</h2>
     <div class="mt-2 flex flex-wrap gap-2">
       <template v-for="slotSummary in slotSummaries" :key="slotSummary.date">
-        <button v-if="slotSummary.hasUnlimitedCapacity" type="button"
+        <button v-if="slotSummary.freeSlots > 0 || slotSummary.hasUnlimitedCapacity" type="button"
           class="!flex flex-col items-center justify-center button"
           :class="{ 'button-htlvb-selected': selectedDate === slotSummary.date }"
           @click="selectedDate = slotSummary.date">
-          <span>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
-        </button>
-        <button v-else-if="slotSummary.freeSlots > 0" type="button" class="!flex flex-col items-center button"
-          :class="{ 'button-htlvb-selected': selectedDate === slotSummary.date }"
-          @click="selectedDate = slotSummary.date">
-          <span>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
-          <span class="text-sm">{{ pluralize(slotSummary.freeSlots, 'freier Platz', 'freie Plätze') }}</span>
+          <span v-if="slotSummary.slots.length === 1">{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}, {{ formatSlotTime(slotSummary.slots[0]) }}</span>
+          <span v-else>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
+          <span v-if="slotSummary.freeSlots > 0" class="text-sm">{{ Text.pluralize(slotSummary.freeSlots, 'freier Platz', 'freie Plätze') }}</span>
         </button>
         <button v-else-if="slotSummary.hasClosedSlot" type="button" :disabled="true"
           class="!flex flex-col items-center button">
@@ -117,10 +113,10 @@ const pluralize = (v: number, singularText: string, pluralText: string) => {
       </template>
     </div>
   </div>
-  <template v-if="selectedDate !== undefined">
+  <template v-if="selectedDateSlots.length > 1">
     <h2 class="text-lg mt-4">Uhrzeit</h2>
     <div class="mt-2 flex flex-wrap gap-2">
-      <template v-for="slot in slots.filter(v => selectedDate !== undefined && DateTime.dateEquals(new Date(selectedDate), new Date(v.startTime)))"
+      <template v-for="slot in selectedDateSlots"
         :key="slot.startTime">
         <template v-if="slot.type.type === 'free'">
           <button v-if="slot.type.remainingCapacity === null" type="button"
@@ -131,7 +127,7 @@ const pluralize = (v: number, singularText: string, pluralText: string) => {
           <button v-else type="button" class="!flex flex-col items-center button"
             :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
             <span>{{ formatSlotTime(slot) }}</span>
-            <span class="text-sm">{{ pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
+            <span class="text-sm">{{ Text.pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
           </button>
         </template>
         <button v-else-if="slot.type.type === 'closed'" type="button" :disabled="true" class="!flex flex-col items-center button">

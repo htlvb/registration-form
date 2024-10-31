@@ -53,3 +53,12 @@ export namespace DateTime {
     return new Date(date.getTime() + ((((days * 24 + hours) * 60) + minutes) * 60 + seconds) * 1000 + milliseconds)
   }
 }
+
+export namespace Text {
+  export const pluralize = (v: number, singularText: string, pluralText: string) => {
+    if (v === 1) {
+      return `${v} ${singularText}`
+    }
+    return `${v} ${pluralText}`
+  }
+}
