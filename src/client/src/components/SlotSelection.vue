@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 import _ from 'lodash'
 import type { Slot } from '@/DataTransfer'
 import { DateTime, Text } from '@/Utils'
-import SlotTimeSelection from './SlotTimeSelection.vue'
 
 const props = defineProps<{
     slots: Slot[]
