@@ -84,7 +84,9 @@ const doRegister = async () => {
   })
   if (result.succeeded) {
     isRegistered.value = true
-    selectedQuantity.value = undefined
+    if (selectedSlotMaxQuantity.value > 1) {
+      selectedQuantity.value = undefined
+    }
     contactName.value = undefined
     contactMailAddress.value = undefined
     contactPhoneNumber.value = undefined
