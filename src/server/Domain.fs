@@ -86,7 +86,10 @@ module Event =
                 Key = eventData.Key
                 Title = eventData.Title
                 InfoText = eventData.InfoText
-                Slots = [| for slot in eventData.Slots -> Slot.fromSlotData timeProvider slot |]
+                Slots =
+                    eventData.Slots
+                    |> Array.map (Slot.fromSlotData timeProvider)
+                    |> Array.sortBy _.StartTime
                 MailSubject = eventData.MailSubject
                 MailContentTemplate = eventData.MailContentTemplate
             }
