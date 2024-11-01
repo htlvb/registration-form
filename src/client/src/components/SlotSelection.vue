@@ -139,8 +139,8 @@ const formatClosingDate = (v: Date) => {
         </button>
       </template>
     </div>
-    <div v-if="selectedSlot !== undefined && selectedSlot.type.type === 'free' && selectedSlot.type.closingDate !== null" class="mt-2">
-      <span class="text-sm">Anmeldeschluss: {{ formatClosingDate(new Date(selectedSlot.type.closingDate)) }}</span>
-    </div>
   </template>
+  <div v-if="selectedSlot !== undefined && selectedSlot.type.type === 'free' && selectedSlot.type.closingDate !== null" class="mt-2">
+    <span class="text-sm">Anmeldeschluss: {{ formatClosingDate(new Date(selectedSlot.type.closingDate)) }}</span>
+  </div>
 </template>
