@@ -26,18 +26,18 @@ INSERT INTO event (key, title, info_text, reservation_start_time, mail_subject, 
     (
         'lets-code-2425',
         'Let''s code 2024/25',
-        'Tauche ein in die faszinierende Welt der **Bits und Bytes**!
+        'Tauche ein in die faszinierende Welt der Bits und Bytes!
 
-Programmieren ist der **Schlüssel zur Zukunft** – und jetzt hast du die Chance, den ersten Schritt in diese spannende Welt zu machen. In unserem Workshop lernst du die Grundlagen des Programmierens und entdeckst, wie Computer denken und arbeiten.
+In unserem Workshop lernst du die Grundlagen des Programmierens und entdeckst, wie Computer denken und arbeiten.
 
-Egal, ob du neugierig auf die Technologie hinter Apps, Webseiten oder Spielen bist – hier erfährst du, wie du deine eigenen digitalen Ideen umsetzen kannst.
+Egal, ob du neugierig auf die Technologie hinter Apps, Websites oder Spielen bist – hier erfährst du, wie die digitale Welt funktioniert.
 
-Komm vorbei und entdecke, wie viel Spaß es macht, die digitale Welt aktiv mitzugestalten!',
+Komm vorbei und sieh selber, wie viel Spaß es macht, eigene Computerprogramme zu entwickeln!',
         '2024-09-29 00:00:00',
         'Anmeldung zum Programmierworkshop "Let''s code"',
         '{{{FullName}}},
 
-vielen Dank für die Anmeldung zum Programmierworkshop "Let''s code" der HTL Vöcklabruck am {{{Date}}}.
+vielen Dank für die Anmeldung zum Programmierworkshop "Let''s code" der HTL Vöcklabruck am {{{Date}}} um {{{Time}}}.
 Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir dich, uns sobald wie möglich Bescheid zu geben.
 Du kannst dafür auf diese E-Mail antworten oder uns unter 07672/24605 anrufen.
 
