@@ -37,7 +37,7 @@ type RegistrationController(
         this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.StartTime.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
 
     [<HttpGet("{eventKey?}")>]
-    member this.GetRegistrations (eventKey: string) = async {
+    member this.GetEvent (eventKey: string) = async {
         match! eventStore.TryGetEvent eventKey with
         | None -> return this.NotFound() :> IActionResult
         | Some event ->
