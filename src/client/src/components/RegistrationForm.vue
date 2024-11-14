@@ -153,7 +153,7 @@ const doRegister = async () => {
     </span>
   </div>
   <template v-else>
-    <div v-html="infoText" class="my-6"></div>
+    <div v-html="infoText" class="info-text my-6"></div>
     <form @submit.prevent="doRegister" class="my-6">
       <fieldset :disabled="isRegistering">
         <SlotSelection :slots="event.slots" v-model="selectedSlot" />
@@ -200,3 +200,15 @@ const doRegister = async () => {
     </form>
   </template>
 </template>
+
+<style lang="css" scoped>
+.info-text :deep(p) {
+  @apply pt-2
+}
+.info-text :deep(ul) {
+  @apply list-disc ml-8
+}
+.info-text :deep(ol) {
+  @apply list-decimal ml-8
+}
+</style>
