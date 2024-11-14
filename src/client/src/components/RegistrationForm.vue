@@ -203,7 +203,7 @@ const doRegister = async () => {
 
 <style lang="css" scoped>
 .info-text :deep(p) {
-  @apply pt-2
+  @apply mt-2
 }
 .info-text :deep(ul) {
   @apply list-disc ml-8
