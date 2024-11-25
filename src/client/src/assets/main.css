@@ -8,7 +8,7 @@
   }
 }
 
-html, body, #app {
+html, body {
   @apply h-full;
 }
 

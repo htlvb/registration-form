@@ -32,15 +32,17 @@ const reservationStartTime = computed(() => {
 
 <template>
   <header class="bg-blue-htlvb">
-    <div class="max-w-screen-lg mx-auto flex gap-6">
-      <img src="@/assets/logo.svg" class="h-[80px] my-4" />
-      <div class="flex flex-col gap-2 py-4 text-slate-300">
+    <div class="max-w-screen-lg mx-auto flex flex-col sm:flex-row gap-2 sm:gap-6 my-4 px-4">
+      <div>
+        <img src="@/assets/logo.svg" class="h-[80px]" />
+      </div>
+      <div class="flex flex-col gap-2 text-slate-300">
         <span class="text-2xl small-caps">Registrierung</span>
         <span v-if="event !== undefined" class="text-4xl small-caps">{{ event.title }}</span>
       </div>
     </div>
   </header>
-  <main class="grow overflow-y-scroll">
+  <main class="grow sm:overflow-y-scroll px-4">
     <div class="max-w-screen-lg mx-auto">
       <LoadingBar v-if="isLoadingEvent" class="m-4" />
       <ErrorWithRetry v-else-if="hasLoadingEventFailed" @retry="loadEvent" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
