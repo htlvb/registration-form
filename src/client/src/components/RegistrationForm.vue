@@ -44,13 +44,14 @@ watch(selectedSlotMaxQuantity, freeSlots => {
   }
 })
 
+type RegistrationState = 'isRegistered' | 'isRequested'
 const isRegistering = ref(false)
 const hasRegisteringFailed = ref(false)
-const isRegistered = ref(false)
+const registrationState = ref<RegistrationState>()
 const isConfirmationMailSent = ref<boolean>()
 const registrationErrorMessages = ref([] as string[])
 const doRegister = async () => {
-  isRegistered.value = false
+  registrationState.value = undefined
   isConfirmationMailSent.value = undefined
   if (selectedSlot.value === undefined) {
     registrationErrorMessages.value = [ 'Bitte wählen Sie Datum und Uhrzeit aus.' ]
@@ -76,7 +77,10 @@ const doRegister = async () => {
     })
   })
   if (result.succeeded) {
-    isRegistered.value = true
+    switch (selectedSlot.value.type.type) {
+      case 'free': registrationState.value = 'isRegistered'; break;
+      case 'takenWithRequestPossible': registrationState.value = 'isRequested'; break;
+    }
     if (selectedSlotMaxQuantity.value > 1) {
       selectedQuantity.value = undefined
     }
@@ -142,7 +146,7 @@ const doRegister = async () => {
 </script>
 
 <template>
-  <div v-if="!hasFreeSlot && !isRegistered && !isRegistering && registrationErrorMessages.length === 0" class="flex justify-center items-center gap-2 p-4 rounded font-semibold">
+  <div v-if="!hasFreeSlot && registrationState === undefined && !isRegistering && registrationErrorMessages.length === 0" class="flex justify-center items-center gap-2 p-4 rounded font-semibold">
     <span>
       Leider sind keine Termine mehr frei.
       Bitte kontaktieren sie uns unter
@@ -183,20 +187,20 @@ const doRegister = async () => {
           <template v-else>Registrieren</template>
         </LoadButton>
         <div class="mt-2">
-          <span v-if="selectedSlot?.type.type === 'takenWithRequestPossible'">
+          <p v-if="selectedSlot?.type.type === 'takenWithRequestPossible'">
             Zum ausgewählten Zeitpunkt sind leider keine Plätze mehr frei.<br />
             Sie können aber dennoch Ihre Kontaktdaten hinterlegen.<br />
             Wir melden uns, um gemeinsam eine Lösung zu finden.
-          </span>
-          <template v-if="isRegistered && isConfirmationMailSent !== undefined">
-            <span v-if="isConfirmationMailSent" class="text-green-500">
-              Ihre Registrierung wurde erfolgreich gespeichert. Sie erhalten in Kürze eine Bestätigung per Mail.
-            </span>
-            <span v-else class="text-yellow-500">
-              Ihre Registrierung wurde erfolgreich gespeichert.<br />
+          </p>
+          <template v-if="registrationState !== undefined && isConfirmationMailSent !== undefined">
+            <p v-if="isConfirmationMailSent" class="text-green-500">
+              Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} wurde erfolgreich gespeichert. Sie erhalten in Kürze eine Bestätigung per Mail.
+            </p>
+            <p v-else class="text-yellow-500">
+              Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} wurde erfolgreich gespeichert.<br />
               Eine Bestätigungsmail konnte aber aufgrund eines internen Fehlers nicht versendet werden.<br />
-              Sie können sich Ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
-            </span>
+              Sie können sich Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
+            </p>
           </template>
           <ul v-else-if="registrationErrorMessages.length > 0" class="text-red-500">
             <li v-for="content in registrationErrorMessages" :key="content" v-html="content"></li>
