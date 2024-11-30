@@ -66,7 +66,7 @@ type RegistrationController(
                         }
                     | None -> async { return false }
                 let requestBookingResult: DataTransfer.RequestBookingResult = {
-                    MailSendError = mailSendSucceeded
+                    MailSendError = not mailSendSucceeded
                 }
                 return this.Ok(requestBookingResult)
             else
@@ -91,7 +91,7 @@ type RegistrationController(
                 }
                 let bookingResult: DataTransfer.BookingResult = {
                     SlotType = newSlotType
-                    MailSendError = mailSendSucceeded
+                    MailSendError = not mailSendSucceeded
                 }
                 return this.Ok(bookingResult)
     }
