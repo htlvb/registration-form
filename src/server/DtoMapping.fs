@@ -11,6 +11,12 @@ module SlotType =
                 Option.toNullable v.MaxQuantityPerBooking,
                 Option.toNullable v.RemainingCapacity
             ) :> DataTransfer.SlotType
+        | Domain.SlotTypeTakenWithRequestPossible v ->
+            DataTransfer.SlotTypeTakenWithRequestPossible(
+                slotUrl,
+                Option.toNullable v.ClosingDate,
+                Option.toNullable v.MaxQuantityPerBooking
+            )
         | Domain.SlotTypeTaken -> DataTransfer.SlotTypeTaken()
         | Domain.SlotTypeClosed -> DataTransfer.SlotTypeClosed()
 
@@ -31,7 +37,7 @@ module BookingValidationError =
         | Domain.EventNotFound -> {| Error = "event-not-found" |} :> obj
         | Domain.EventNotReleased -> {| Error = "event-not-released" |}
         | Domain.SlotNotFound -> {| Error = "slot-not-found" |}
-        | Domain.SlotNotFree slot -> {| Error = "slot-not-free"; SlotType = Slot.fromDomain (getSlotUrl slot) slot |> _.Type |}
+        | Domain.SlotUnavailable slot -> {| Error = "slot-unavailable"; SlotType = Slot.fromDomain (getSlotUrl slot) slot |> _.Type |}
         | Domain.InvalidSubscriptionQuantity -> {| Error = "invalid-subscription-quantity" |}
         | Domain.InvalidSubscriberName -> {| Error = "invalid-subscriber-name" |}
         | Domain.InvalidMailAddress -> {| Error = "invalid-mail-address" |}

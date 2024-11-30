@@ -24,13 +24,18 @@ export type SlotType = {
   maxQuantityPerBooking: number | null
   remainingCapacity: number | null
 } | {
-  type: 'closed'
+  type: 'takenWithRequestPossible'
+  url: string
+  closingDate: string | null
+  maxQuantityPerBooking: number | null
 } | {
   type: 'taken'
+} | {
+  type: 'closed'
 }
 
 export type BookingResult = {
-  slotType: SlotType
+  slotType?: SlotType
   mailSendError: boolean
 }
 
@@ -38,7 +43,8 @@ export type BookingError =
   | { error: 'event-not-found' }
   | { error: 'event-not-released' }
   | { error: 'slot-not-found' }
-  | { error: 'slot-not-free', slotType: SlotType }
+  | { error: 'slot-unavailable', slotType: SlotType }
+  | { error: 'slot-needs-request', slotType: SlotType }
   | { error: 'invalid-subscription-quantity' }
   | { error: 'invalid-subscriber-name' }
   | { error: 'invalid-mail-address' }

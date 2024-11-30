@@ -30,7 +30,10 @@ let main args =
         Sender = { Name = mailConfig.GetRequiredSection("SenderName").Value; MailAddress = mailConfig.GetRequiredSection("SenderAddress").Value }
         BccRecipients =
             mailConfig.GetRequiredSection("BccRecipients").GetChildren()
-            |> Seq.map (fun v -> { Name = v.GetRequiredSection("Name").Value; MailAddress = v.GetRequiredSection("Address").Value })
+            |> Seq.map (fun v ->
+                let mailUser: Domain.MailUser = { Name = v.GetRequiredSection("Name").Value; MailAddress = v.GetRequiredSection("Address").Value }
+                mailUser
+            )
             |> Seq.toList
     }) |> ignore
     builder.Services.AddScoped<IBookingConfirmationSender, MSGraphBookingConfirmationSender>() |> ignore

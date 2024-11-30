@@ -6,33 +6,22 @@ open MimeKit
 open MimeKit.Text
 open Microsoft.Graph
 
-type MailUser = {
-    Name: string
-    MailAddress: string
-}
-
 type SmtpMailSettings = {
     SmtpAddress: string
     MailboxUserName: string
     MailboxPassword: string
-    Sender: MailUser
-    BccRecipient: MailUser option
+    Sender: Domain.MailUser
+    BccRecipient: Domain.MailUser option
 }
 
 type MSGraphMailSettings = {
     MailboxUserName: string
-    Sender: MailUser
-    BccRecipients: MailUser list
-}
-
-type MailSettings = {
-    Recipient: MailUser
-    Subject: string
-    Content: string
+    Sender: Domain.MailUser
+    BccRecipients: Domain.MailUser list
 }
 
 type IBookingConfirmationSender =
-    abstract member SendBookingConfirmation: MailSettings -> Async<unit>
+    abstract member SendBookingConfirmation: Domain.BookingConfirmationData -> Async<unit>
 
 type SmtpBookingConfirmationSender(settings: SmtpMailSettings) =
     interface IBookingConfirmationSender with

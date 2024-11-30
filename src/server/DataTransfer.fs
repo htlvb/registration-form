@@ -6,8 +6,9 @@ open System.Text.Json.Serialization
 [<AbstractClass>]
 [<JsonPolymorphic(TypeDiscriminatorPropertyName = "type")>]
 [<JsonDerivedType(typeof<SlotTypeFree>, "free")>]
-[<JsonDerivedType(typeof<SlotTypeClosed>, "closed")>]
+[<JsonDerivedType(typeof<SlotTypeTakenWithRequestPossible>, "takenWithRequestPossible")>]
 [<JsonDerivedType(typeof<SlotTypeTaken>, "taken")>]
+[<JsonDerivedType(typeof<SlotTypeClosed>, "closed")>]
 type SlotType() = class end
 and SlotTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>, remainingCapacity: Nullable<int>) =
     inherit SlotType()
@@ -17,6 +18,11 @@ and SlotTypeFree(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBoo
     member _.RemainingCapacity = remainingCapacity
 and SlotTypeClosed() =
     inherit SlotType()
+and SlotTypeTakenWithRequestPossible(url: string, closingDate: Nullable<DateTime>, maxQuantityPerBooking: Nullable<int>) =
+    inherit SlotType()
+    member _.Url = url
+    member _.ClosingDate = closingDate
+    member _.MaxQuantityPerBooking = maxQuantityPerBooking
 and SlotTypeTaken() =
     inherit SlotType()
 
@@ -50,5 +56,8 @@ type Subscriber = {
 
 type BookingResult = {
     SlotType: SlotType
+    MailSendError: bool
+}
+type RequestBookingResult = {
     MailSendError: bool
 }

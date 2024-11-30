@@ -45,34 +45,55 @@ let private getSampleReservationData quantity : DataTransfer.Subscriber =
         Quantity = quantity
     }
 
-let private makeSampleBooking server (httpClient: HttpClient) pickBookingQuantity = async {
-    let reservationStartTime = FakeData.events.["tdot-2025"].ReservationStartTime
+let private bookSlot server (httpClient: HttpClient) eventName pickSlot = async {
+    let reservationStartTime = FakeData.events.[eventName].ReservationStartTime
     server |> InMemoryServer.setTimeProviderTime reservationStartTime
-    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/tdot-2025") |> Async.AwaitTask
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>($"/api/event/%s{eventName}") |> Async.AwaitTask
     let releasedEvent = event :?> DataTransfer.ReleasedEvent
-    let (slotUrl, bookingQuantity) =
+    let (slotUrl: string, bookingQuantity) =
         releasedEvent.Slots
-        |> Array.tryPick (fun v ->
-            match v.Type with
-            | :? DataTransfer.SlotTypeFree as v ->
-                match pickBookingQuantity v with
-                | Some bookingCapacity -> Some (v.Url, bookingCapacity)
-                | None -> None
-            | _ -> None
-        )
+        |> Array.tryPick pickSlot
         |> Option.defaultWith (fun () -> Assert.Fail("No slot found"); Unchecked.defaultof<_>)
     return! httpClient.PostAsJsonAsync(slotUrl, getSampleReservationData bookingQuantity) |> Async.AwaitTask
 }
 
-let makeSampleBooking' pickBookingQuantity = async {
+let private bookFreeSlot server (httpClient: HttpClient) pickBookingQuantity = async {
+    return! bookSlot server httpClient "tdot-2025" (fun v ->
+        match v.Type with
+        | :? DataTransfer.SlotTypeFree as v ->
+            match pickBookingQuantity v with
+            | Some bookingCapacity -> Some (v.Url, bookingCapacity)
+            | None -> None
+        | _ -> None
+    )
+}
+
+let bookFreeSlot' pickBookingQuantity = async {
     use! server = InMemoryServer.start()
     use httpClient = server.GetTestClient()
-    return! makeSampleBooking server httpClient pickBookingQuantity
+    return! bookFreeSlot server httpClient pickBookingQuantity
+}
+
+let private requestSlot server (httpClient: HttpClient) pickBookingQuantity = async {
+    return! bookSlot server httpClient "lets-code-2425" (fun v ->
+        match v.Type with
+        | :? DataTransfer.SlotTypeTakenWithRequestPossible as v ->
+            match pickBookingQuantity v with
+            | Some bookingCapacity -> Some (v.Url, bookingCapacity)
+            | None -> None
+        | _ -> None
+    )
+}
+
+let requestSlot' pickBookingQuantity = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    return! requestSlot server httpClient pickBookingQuantity
 }
 
 [<Fact>]
 let ``Can make booking when enough capacity`` () = async {
-    let! response = makeSampleBooking' (fun slot ->
+    let! response = bookFreeSlot' (fun slot ->
         if not slot.MaxQuantityPerBooking.HasValue && slot.RemainingCapacity.HasValue then
             Some slot.RemainingCapacity.Value
         else None
@@ -82,7 +103,7 @@ let ``Can make booking when enough capacity`` () = async {
 
 [<Fact>]
 let ``Can't make booking when not enough capacity`` () = async {
-    let! response = makeSampleBooking' (fun slot ->
+    let! response = bookFreeSlot' (fun slot ->
         if not slot.MaxQuantityPerBooking.HasValue && slot.RemainingCapacity.HasValue then
             Some (slot.RemainingCapacity.Value + 1)
         else None
@@ -94,7 +115,7 @@ let ``Can't make booking when not enough capacity`` () = async {
 let ``Can make two consecutive bookings when enough capacity`` () = async {
     use! server = InMemoryServer.start()
     use httpClient = server.GetTestClient()
-    let! response = makeSampleBooking server httpClient (fun slot ->
+    let! response = bookFreeSlot server httpClient (fun slot ->
         if slot.RemainingCapacity.HasValue && slot.RemainingCapacity.Value > 1 then
             Some 1
         else None
@@ -107,7 +128,7 @@ let ``Can make two consecutive bookings when enough capacity`` () = async {
 
 [<Fact>]
 let ``Can make booking when no capacity limit`` () = async {
-    let! response = makeSampleBooking' (fun slot ->
+    let! response = bookFreeSlot' (fun slot ->
         if not slot.MaxQuantityPerBooking.HasValue && not slot.RemainingCapacity.HasValue then
             Some Int32.MaxValue
         else None
@@ -119,7 +140,7 @@ let ``Can make booking when no capacity limit`` () = async {
 
 [<Fact>]
 let ``Can't make booking when quantity > max quantity per booking`` () = async {
-    let! response = makeSampleBooking' (fun slot ->
+    let! response = bookFreeSlot' (fun slot ->
         if slot.MaxQuantityPerBooking.HasValue && (not slot.RemainingCapacity.HasValue || slot.RemainingCapacity.Value > slot.MaxQuantityPerBooking.Value) then
             Some (slot.MaxQuantityPerBooking.Value + 1)
         else None
@@ -181,4 +202,33 @@ let ``Can get closed slot`` () = async {
         |> Array.tryFind (fun v -> v.StartTime = slotTime)
         |> Option.defaultWith (fun () -> Assert.Fail("Slot no longer found"); Unchecked.defaultof<_>)
     Assert.IsType<DataTransfer.SlotTypeClosed>(slot.Type) |> ignore
+}
+
+[<Fact>]
+let ``Can make booking request`` () = async {
+    let! response = requestSlot' (fun slot -> Some 1)
+    Assert.Equal(enum StatusCodes.Status200OK, response.StatusCode)
+}
+
+[<Fact>]
+let ``Can have booking request suggested`` () = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let reservationStartTime = FakeData.events.["lets-code-2425"].ReservationStartTime
+    server |> InMemoryServer.setTimeProviderTime reservationStartTime
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>($"/api/event/lets-code-2425") |> Async.AwaitTask
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
+    let slotUrl =
+        releasedEvent.Slots
+        |> Array.tryPick (fun v ->
+            match v.Type with
+            | :? DataTransfer.SlotTypeFree as v when v.RemainingCapacity = Nullable<_> 1 -> Some v.Url
+            | _ -> None
+        )
+        |> Option.defaultWith (fun () -> Assert.Fail("No slot found"); Unchecked.defaultof<_>)
+    let! _ = httpClient.PostAsJsonAsync(slotUrl, getSampleReservationData 1) |> Async.AwaitTask
+    let! response = httpClient.PostAsJsonAsync(slotUrl, getSampleReservationData 1) |> Async.AwaitTask
+    Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
+    let! responseMessage = response.Content.ReadFromJsonAsync<{| Error: string |}[]>() |> Async.AwaitTask
+    Assert.Equal([{| Error = "slot-needs-request" |}], responseMessage)
 }

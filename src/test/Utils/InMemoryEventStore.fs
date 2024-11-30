@@ -12,41 +12,53 @@ type InMemoryEventStore(events, eventRegistrations) =
         member _.GetEventRegistrations eventKey = async {
             return eventRegistrations |> Map.tryFind eventKey |> Option.defaultValue []
         }
-        member _.TryBook eventKey data = async {
+        member _.TryBook bookingData = async {
             let remainingCapacity =
-                match Map.tryFind eventKey events with
+                match Map.tryFind bookingData.EventKey events with
                 | None -> Some 0
                 | Some event ->
                     event.Slots
-                    |> Seq.tryFind (fun v -> v.Time = data.time)
+                    |> Seq.tryFind (fun v -> v.Time = bookingData.SlotTime)
                     |> function
                     | Some slot -> slot.RemainingCapacity
                     | None -> Some 0
             match remainingCapacity with
-            | Some remainingCapacity when data.quantity > remainingCapacity ->
+            | Some remainingCapacity when bookingData.Subscriber.Quantity.Value > remainingCapacity ->
                 return Error (Domain.CapacityExceeded remainingCapacity)
             | remainingCapacity ->
-                let newRemainingCapacity = remainingCapacity |> Option.map (fun v -> v - data.quantity)
+                let newRemainingCapacity = remainingCapacity |> Option.map (fun v -> v - bookingData.Subscriber.Quantity.Value)
                 events <-
                     events
                     |> Map.map (fun key event ->
-                        if key = eventKey then
+                        if key = bookingData.EventKey then
                             { event with
                                 Slots =
                                     event.Slots
                                     |> Array.map (fun slot ->
-                                        if slot.Time = data.time then
+                                        if slot.Time = bookingData.SlotTime then
                                             { slot with RemainingCapacity = newRemainingCapacity }
                                         else slot
                                     )
                             }
                         else event
                     )
+                let eventRegistration = {
+                    time = bookingData.SlotTime
+                    quantity = bookingData.Subscriber.Quantity.Value
+                    name = bookingData.Subscriber.Name.Value
+                    mail_address = bookingData.Subscriber.MailAddress.Value
+                    phone_number = bookingData.Subscriber.PhoneNumber.Value
+                    time_stamp = bookingData.Timestamp
+                }
                 eventRegistrations <-
                     eventRegistrations
                     |> Map.map (fun key eventRegistrations ->
-                        if key = eventKey then eventRegistrations @ [ data ]
+                        if key = bookingData.EventKey then
+                            eventRegistrations @ [ eventRegistration ]
                         else eventRegistrations
                     )
                 return Ok newRemainingCapacity
+        }
+        member _.AddBookingRequest bookingData = async {
+            return ()
         }

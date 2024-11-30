@@ -11,8 +11,9 @@ const props = defineProps<{
 type SlotSummary = {
   hasUnlimitedCapacity: boolean
   freeSlots: number
-  hasClosedSlot: boolean
+  canRequestSlot: boolean
   hasTakenSlot: boolean
+  hasClosedSlot: boolean
 }
 
 const summarizeSlots = (slots: Slot[]) => {
@@ -20,20 +21,22 @@ const summarizeSlots = (slots: Slot[]) => {
     .reduce((slotSummary, slot) => {
       switch (slot.type.type) {
         case 'free':
-            if (slot.type.remainingCapacity === null) {
-              return { ...slotSummary, hasUnlimitedSlot: true }
-            }
-            else {
-              return { ...slotSummary, freeSlots: slotSummary.freeSlots + slot.type.remainingCapacity }
-            }
-        case 'closed': return { ...slotSummary, hasClosedSlot: true }
+          if (slot.type.remainingCapacity === null) {
+            return { ...slotSummary, hasUnlimitedSlot: true }
+          }
+          else {
+            return { ...slotSummary, freeSlots: slotSummary.freeSlots + slot.type.remainingCapacity }
+          }
+        case 'takenWithRequestPossible': return { ...slotSummary, canRequestSlot: true }
         case 'taken': return { ...slotSummary, hasTakenSlot: true }
+        case 'closed': return { ...slotSummary, hasClosedSlot: true }
       }
     }, {
       hasUnlimitedCapacity: false,
       freeSlots: 0,
-      hasClosedSlot: false,
-      hasTakenSlot: false
+      canRequestSlot: false,
+      hasTakenSlot: false,
+      hasClosedSlot: false
     } as SlotSummary)
 }
 
@@ -53,7 +56,7 @@ watch(selectedDate, () => {
     return
   }
   const selectedDateTime = new Date(selectedDate.value)
-  const dateSlots = props.slots.filter(v => DateTime.dateEquals(selectedDateTime, new Date(v.startTime)))
+  const dateSlots = props.slots.filter(v => (v.type.type === 'free' || v.type.type === 'takenWithRequestPossible') && DateTime.dateEquals(selectedDateTime, new Date(v.startTime)))
   if (dateSlots.length === 1) {
     selectedSlot.value = dateSlots[0]
   }
@@ -90,57 +93,42 @@ const formatClosingDate = (v: Date) => {
   <div v-if="slotSummaries.length > 1">
     <h2 class="text-lg">Datum</h2>
     <div class="mt-2 flex flex-wrap gap-2">
-      <template v-for="slotSummary in slotSummaries" :key="slotSummary.date">
-        <button v-if="slotSummary.freeSlots > 0 || slotSummary.hasUnlimitedCapacity" type="button"
-          class="!flex flex-col items-center justify-center button"
-          :class="{ 'button-htlvb-selected': selectedDate === slotSummary.date }"
-          @click="selectedDate = slotSummary.date">
-          <span v-if="slotSummary.slots.length === 1">{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}, {{ formatSlotTime(slotSummary.slots[0]) }}</span>
-          <span v-else>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
-          <span v-if="slotSummary.freeSlots > 0" class="text-sm">{{ Text.pluralize(slotSummary.freeSlots, 'freier Platz', 'freie Plätze') }}</span>
-        </button>
-        <button v-else-if="slotSummary.hasClosedSlot" type="button" :disabled="true"
-          class="!flex flex-col items-center button">
+      <button v-for="slotSummary in slotSummaries" :key="slotSummary.date"
+        type="button"
+        :disabled="slotSummary.freeSlots === 0 && !slotSummary.hasUnlimitedCapacity && !slotSummary.canRequestSlot"
+        class="!flex flex-col items-center justify-center button"
+        :class="{ 'button-htlvb-selected': selectedDate === slotSummary.date }"
+        v-on="{ click: slotSummary.freeSlots > 0 || slotSummary.hasUnlimitedCapacity || slotSummary.canRequestSlot ? (() => selectedDate = slotSummary.date) : null }">
+        <span>
           <span>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
-          <span class="text-sm">geschlossen</span>
-        </button>
-        <button v-else-if="slotSummary.hasTakenSlot" type="button" :disabled="true"
-          class="!flex flex-col items-center button">
-          <span>{{ DateTime.formatDate(new Date(slotSummary.date), { weekday: 'short' }) }}</span>
-          <span class="text-sm">ausgebucht</span>
-        </button>
-      </template>
+          <span v-if="slotSummary.slots.length === 1">, {{ formatSlotTime(slotSummary.slots[0]) }}</span>
+        </span>
+        <template v-if="slotSummary.hasUnlimitedCapacity"></template>
+        <span v-else-if="slotSummary.freeSlots > 0" class="text-sm">{{ Text.pluralize(slotSummary.freeSlots, 'freier Platz', 'freie Plätze') }}</span>
+        <span v-else-if="slotSummary.hasTakenSlot || slotSummary.canRequestSlot" class="text-sm" :class="{ 'text-red-500': selectedDate === slotSummary.date }">ausgebucht</span>
+        <span v-else-if="slotSummary.hasClosedSlot" class="text-sm">geschlossen</span>
+      </button>
     </div>
   </div>
   <template v-if="selectedDateSlots.length > 1">
     <h2 class="text-lg mt-4">Uhrzeit</h2>
     <div class="mt-2 flex flex-wrap gap-2">
-      <template v-for="slot in selectedDateSlots"
-        :key="slot.startTime">
+      <button v-for="slot in selectedDateSlots" :key="slot.startTime"
+        type="button"
+        :disabled="slot.type.type === 'taken' || slot.type.type === 'closed'"
+        class="!flex flex-col items-center justify-center button"
+        :class="{ 'button-htlvb-selected': selectedSlot === slot }"
+        v-on="{ click: slot.type.type === 'free' || slot.type.type === 'takenWithRequestPossible' ? (() => selectedSlot = slot) : null }">
+        <span>{{ formatSlotTime(slot) }}</span>
         <template v-if="slot.type.type === 'free'">
-          <button v-if="slot.type.remainingCapacity === null" type="button"
-            class="!flex flex-col items-center justify-center button"
-            :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
-            <span>{{ formatSlotTime(slot) }}</span>
-          </button>
-          <button v-else type="button" class="!flex flex-col items-center button"
-            :class="{ 'button-htlvb-selected': selectedSlot === slot }" @click="selectedSlot = slot">
-            <span>{{ formatSlotTime(slot) }}</span>
-            <span class="text-sm">{{ Text.pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
-          </button>
+          <span v-if="slot.type.remainingCapacity != null" class="text-sm">{{ Text.pluralize(slot.type.remainingCapacity, 'freier Platz', 'freie Plätze') }}</span>
         </template>
-        <button v-else-if="slot.type.type === 'closed'" type="button" :disabled="true" class="!flex flex-col items-center button">
-          <span>{{ formatSlotTime(slot) }}</span>
-          <span class="text-sm">geschlossen</span>
-        </button>
-        <button v-else-if="slot.type.type === 'taken'" type="button" :disabled="true" class="!flex flex-col items-center button">
-          <span>{{ formatSlotTime(slot) }}</span>
-          <span class="text-sm">ausgebucht</span>
-        </button>
-      </template>
+        <span v-else-if="slot.type.type === 'taken' || slot.type.type === 'takenWithRequestPossible'" class="text-sm" :class="{ 'text-red-500': selectedSlot === slot }">ausgebucht</span>
+        <span v-else-if="slot.type.type === 'closed'" class="text-sm">geschlossen</span>
+      </button>
     </div>
   </template>
-  <div v-if="selectedSlot !== undefined && selectedSlot.type.type === 'free' && selectedSlot.type.closingDate !== null" class="mt-2">
+  <div v-if="selectedSlot !== undefined && (selectedSlot.type.type === 'free' || selectedSlot.type.type === 'takenWithRequestPossible') && selectedSlot.type.closingDate !== null" class="mt-2">
     <span class="text-sm">Anmeldeschluss: {{ formatClosingDate(new Date(selectedSlot.type.closingDate)) }}</span>
   </div>
 </template>

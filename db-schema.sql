@@ -36,6 +36,20 @@ ALTER TABLE event_slot ADD COLUMN closing_date TIMESTAMP;
 -- Add optional slot duration
 ALTER TABLE event_slot ADD COLUMN duration INTERVAL;
 
+-- Allow slot requests if fully booked
+ALTER TABLE event_slot ADD COLUMN can_request_if_fully_booked BOOLEAN;
+UPDATE event_slot SET can_request_if_fully_booked = FALSE;
+ALTER TABLE event_slot ALTER COLUMN can_request_if_fully_booked SET NOT NULL;
+
+ALTER TABLE event_registration ADD COLUMN is_request BOOLEAN;
+UPDATE event_registration SET is_request = FALSE;
+ALTER TABLE event_registration ALTER COLUMN is_request SET NOT NULL;
+
+ALTER TABLE event RENAME COLUMN mail_subject TO registration_confirmation_mail_subject;
+ALTER TABLE event RENAME COLUMN mail_content_template TO registration_confirmation_mail_content_template;
+ALTER TABLE event ADD COLUMN request_confirmation_mail_subject VARCHAR;
+ALTER TABLE event ADD COLUMN request_confirmation_mail_content_template VARCHAR;
+
 -- Clean up
 /*
 DROP TABLE event_registration;

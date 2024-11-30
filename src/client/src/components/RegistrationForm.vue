@@ -28,14 +28,14 @@ const contactName = ref<string>()
 const contactMailAddress = ref<string>()
 const contactPhoneNumber = ref<string>()
 
-const selectedSlotMaxQuantity = computed(() =>
-{
+const selectedSlotMaxQuantity = computed(() => {
   if (selectedSlot.value === undefined) return 0
   const slotType = selectedSlot.value.type
   if (slotType.type === 'taken' || slotType.type === 'closed') return 0
-  if (slotType.remainingCapacity === null) return slotType.maxQuantityPerBooking || 15
-  if (slotType.maxQuantityPerBooking === null) return slotType.remainingCapacity || 15
-  return Math.min(slotType.maxQuantityPerBooking, slotType.remainingCapacity)
+  const remainingCapacity = slotType.type === 'free' ? slotType.remainingCapacity : null;
+  if (remainingCapacity === null) return slotType.maxQuantityPerBooking || 15
+  if (slotType.maxQuantityPerBooking === null) return remainingCapacity || 15
+  return Math.min(slotType.maxQuantityPerBooking, remainingCapacity)
 })
 
 watch(selectedSlotMaxQuantity, freeSlots => {
@@ -59,12 +59,8 @@ const doRegister = async () => {
     registrationErrorMessages.value = [ 'Bitte wählen Sie Datum und Uhrzeit aus.' ]
     return
   }
-  if (selectedSlot.value?.type.type !== 'free') {
+  if (selectedSlot.value.type.type !== 'free' && selectedSlot.value.type.type !== 'takenWithRequestPossible') {
     registrationErrorMessages.value = [ `Zum ausgewählten Zeitpunkt sind leider keine Plätze mehr frei. Bitte kontaktieren Sie uns unter <a href="mailto:office@htlvb.at?subject=${props.event.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
-    return
-  }
-  if (selectedQuantity.value === undefined) {
-    registrationErrorMessages.value = [ `Bitte geben Sie die Anzahl der Personen an.` ]
     return
   }
 
@@ -91,7 +87,9 @@ const doRegister = async () => {
     contactMailAddress.value = undefined
     contactPhoneNumber.value = undefined
     const bookingResult = await result.response.json() as BookingResult
-    selectedSlot.value.type = bookingResult.slotType
+    if (bookingResult.slotType !== undefined) {
+      selectedSlot.value.type = bookingResult.slotType
+    }
     isConfirmationMailSent.value = !bookingResult.mailSendError
     if (selectedSlot.value.type.type !== 'free') {
       selectedSlot.value = undefined
@@ -109,11 +107,14 @@ const doRegister = async () => {
           registrationErrorMessages.value.push('Die Reservierung ist noch nicht geöffnet.')
           break
         case 'slot-not-found':
-          registrationErrorMessages.value.push('Der Slot wurde nicht gefunden.')
+          registrationErrorMessages.value.push('Der Termin wurde nicht gefunden.')
           break
-        case 'slot-not-free':
+        case 'slot-unavailable':
           selectedSlot.value.type = error.slotType
-          registrationErrorMessages.value.push('Der Slot kann nicht reserviert werden.')
+          registrationErrorMessages.value.push('Der Termin kann nicht reserviert werden.')
+          break
+        case 'slot-needs-request':
+          selectedSlot.value.type = error.slotType
           break
         case 'invalid-subscription-quantity':
           registrationErrorMessages.value.push('Bitte wählen Sie eine Anzahl aus.')
@@ -180,8 +181,16 @@ const doRegister = async () => {
           <span class="input-label">Telefonnummer</span>
           <input type="tel" v-model="contactPhoneNumber" required class="input-text">
         </label>
-        <LoadButton :loading="isRegistering" class="mt-2">Registrieren</LoadButton>
+        <LoadButton :loading="isRegistering" class="mt-2">
+          <template v-if="selectedSlot?.type.type === 'takenWithRequestPossible'">Anfragen</template>
+          <template v-else>Registrieren</template>
+        </LoadButton>
         <div class="mt-2">
+          <span v-if="selectedSlot?.type.type === 'takenWithRequestPossible'">
+            Zum ausgewählten Zeitpunkt sind leider keine Plätze mehr frei.<br />
+            Sie können aber dennoch Ihre Kontaktdaten hinterlegen.<br />
+            Wir melden uns, um gemeinsam eine Lösung zu finden.
+          </span>
           <template v-if="isRegistered && isConfirmationMailSent !== undefined">
             <span v-if="isConfirmationMailSent" class="text-green-500">
               Ihre Registrierung wurde erfolgreich gespeichert. Sie erhalten in Kürze eine Bestätigung per Mail.
@@ -189,7 +198,7 @@ const doRegister = async () => {
             <span v-else class="text-yellow-500">
               Ihre Registrierung wurde erfolgreich gespeichert.<br />
               Eine Bestätigungsmail konnte aber aufgrund eines internen Fehlers nicht versendet werden.<br />
-              Sie können sich ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
+              Sie können sich Ihre Registrierung unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
             </span>
           </template>
           <ul v-else-if="registrationErrorMessages.length > 0" class="text-red-500">

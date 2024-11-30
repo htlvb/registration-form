@@ -17,24 +17,21 @@ type RegistrationController(
     jsonOptions: IOptions<JsonOptions>) as this =
     inherit ControllerBase()
 
-    let getSlotType eventKey slot =
-        match slot.ClosingDate with
-        | Some closingDate when timeProvider.GetLocalNow().DateTime >= closingDate ->
-            DataTransfer.SlotTypeClosed() :> DataTransfer.SlotType
-        | _ ->
-            match slot.RemainingCapacity with
-            | Some v when v <= 0 -> DataTransfer.SlotTypeTaken()
-            | remainingCapacity ->
-                let url = this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
-                DataTransfer.SlotTypeFree (
-                    url,
-                    Option.toNullable slot.ClosingDate,
-                    Option.toNullable slot.MaxQuantityPerBooking,
-                    Option.toNullable remainingCapacity
-                )
-
     let getSlotUrl eventKey slot =
-        this.Url.Action(nameof(this.CreateRegistration), {| eventKey = eventKey; slot = slot.StartTime.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) |})
+        let createRequest =
+            match slot.Type with
+            | SlotTypeFree _
+            | SlotTypeTaken
+            | SlotTypeClosed -> false
+            | SlotTypeTakenWithRequestPossible _ -> true
+        this.Url.Action(
+            nameof(this.CreateRegistration),
+            {|
+                eventKey = eventKey
+                slot = slot.StartTime.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture)
+                createRequest = createRequest
+            |}
+        )
 
     [<HttpGet("{eventKey?}")>]
     member this.GetEvent (eventKey: string) = async {
@@ -51,55 +48,50 @@ type RegistrationController(
     }
 
     [<HttpPost("{eventKey}/registration/{slot}")>]
-    member this.CreateRegistration (eventKey: string, slot: string, [<FromBody()>] subscriber: DataTransfer.Subscriber) = async {
+    member this.CreateRegistration (eventKey: string, slot: string, [<FromQuery>]createRequest: Nullable<bool>, [<FromBody>] subscriber: DataTransfer.Subscriber) = async {
         let! eventData = eventStore.TryGetEvent eventKey
         match DtoParsing.Subscriber.parse timeProvider eventData slot subscriber with
         | Error errors -> return this.BadRequest(errors |> List.map (DtoMapping.BookingValidationError.fromDomain (getSlotUrl eventKey))) :> IActionResult
-        | Ok (event, slot, subscriber) ->
-            let! remainingCapacity = eventStore.TryBook event.Key {
-                time = slot.StartTime
-                quantity = subscriber.Quantity.Value
-                name = subscriber.Name.Value
-                mail_address = subscriber.MailAddress.Value
-                phone_number = subscriber.PhoneNumber.Value
-                time_stamp = timeProvider.GetLocalNow().DateTime
-            }
-            match remainingCapacity with
+        | Ok (DtoParsing.Subscriber.CanRequestBooking (bookingData, slot, bookingRequestConfirmationDataOpt)) ->
+            if createRequest.GetValueOrDefault(false) then
+                do! eventStore.AddBookingRequest bookingData
+                let! mailSendSucceeded =
+                    match bookingRequestConfirmationDataOpt with
+                    | Some bookingRequestConfirmationData ->
+                        async {
+                            try
+                                do! bookingConfirmation.SendBookingConfirmation bookingRequestConfirmationData
+                                return true
+                            with _ -> return false
+                        }
+                    | None -> async { return false }
+                let requestBookingResult: DataTransfer.RequestBookingResult = {
+                    MailSendError = mailSendSucceeded
+                }
+                return this.Ok(requestBookingResult)
+            else
+                let newSlotType = DtoMapping.SlotType.fromDomain (getSlotUrl bookingData.EventKey slot) slot.Type
+                return this.BadRequest([{| Error = "slot-needs-request"; SlotType = newSlotType |}])
+        | Ok (DtoParsing.Subscriber.CanBook (bookingData, slot, bookingConfirmationData)) ->
+            match! eventStore.TryBook bookingData with
             | Error (CapacityExceeded remainingCapacity) ->
                 let newSlotType =
                     SlotType.setCapacity slot.Type (Some remainingCapacity)
-                    |> DtoMapping.SlotType.fromDomain (getSlotUrl event.Key slot)
+                    |> DtoMapping.SlotType.fromDomain (getSlotUrl bookingData.EventKey slot)
                 return this.BadRequest([{| Error = "capacity-exceeded"; SlotType = newSlotType |}])
             | Ok remainingCapacity ->
                 let newSlotType =
                     SlotType.setCapacity slot.Type remainingCapacity
-                    |> DtoMapping.SlotType.fromDomain (getSlotUrl event.Key slot)
-                let mailSettings = {
-                    Recipient = {
-                        Name = subscriber.Name.Value
-                        MailAddress = subscriber.MailAddress.Value
-                    }
-                    Subject =  event.MailSubject
-                    Content =
-                        let templateVars = [
-                            "FullName", subscriber.Name.Value
-                            "Date", slot.StartTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
-                            "Time", slot.StartTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
-                        ]
-                        (event.MailContentTemplate, templateVars)
-                        ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+                    |> DtoMapping.SlotType.fromDomain (getSlotUrl bookingData.EventKey slot)
+                let! mailSendSucceeded = async {
+                    try
+                        do! bookingConfirmation.SendBookingConfirmation bookingConfirmationData
+                        return true
+                    with _ -> return false
                 }
-                try
-                    do! bookingConfirmation.SendBookingConfirmation mailSettings
-                    let bookingResult: DataTransfer.BookingResult = {
-                        SlotType = newSlotType
-                        MailSendError = false
-                    }
-                    return this.Ok(bookingResult)
-                with _ ->
-                    let bookingResult: DataTransfer.BookingResult = {
-                        SlotType = newSlotType
-                        MailSendError = true
-                    }
-                    return this.Ok(bookingResult)
+                let bookingResult: DataTransfer.BookingResult = {
+                    SlotType = newSlotType
+                    MailSendError = mailSendSucceeded
+                }
+                return this.Ok(bookingResult)
     }

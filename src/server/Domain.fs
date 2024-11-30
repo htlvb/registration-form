@@ -8,24 +8,35 @@ type SlotData = {
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
+    CanRequestIfFullyBooked: bool
 }
 type SlotType =
-    | SlotTypeFree of {| ClosingDate: DateTime option; MaxQuantityPerBooking: int option; RemainingCapacity: int option |}
+    | SlotTypeFree of {| ClosingDate: DateTime option; MaxQuantityPerBooking: int option; RemainingCapacity: int option; CanRequestIfFullyBooked: bool |}
+    | SlotTypeTakenWithRequestPossible of {| ClosingDate: DateTime option; MaxQuantityPerBooking: int option |}
     | SlotTypeTaken
     | SlotTypeClosed
 module SlotType =
-    let tryFree = function
-        | SlotTypeFree slot -> Some slot
-        | SlotTypeTaken -> None
-        | SlotTypeClosed -> None
-
     let setCapacity slotType remainingCapacity =
         match slotType, remainingCapacity with
         | SlotTypeFree data, None -> SlotTypeFree {| data with RemainingCapacity = None |}
         | SlotTypeFree data, Some remainingCapacity when remainingCapacity > 0 -> SlotTypeFree {| data with RemainingCapacity = Some remainingCapacity |}
+        | SlotTypeFree v, _ when v.CanRequestIfFullyBooked -> SlotTypeTakenWithRequestPossible {| ClosingDate = v.ClosingDate; MaxQuantityPerBooking = v.MaxQuantityPerBooking |}
         | SlotTypeFree _, _ -> SlotTypeTaken
-        | SlotTypeTaken, _ -> SlotTypeTaken
-        | SlotTypeClosed, _ -> SlotTypeClosed
+        | (SlotTypeTakenWithRequestPossible _ as v), _
+        | (SlotTypeTaken as v), _
+        | (SlotTypeClosed as v), _ -> v
+
+    let canBookQuantity quantity slotType =
+        let maxQuantity =
+            match slotType with
+            | SlotTypeFree data -> Some data.MaxQuantityPerBooking
+            | SlotTypeTakenWithRequestPossible data -> Some data.MaxQuantityPerBooking
+            | SlotTypeTaken -> None
+            | SlotTypeClosed -> None
+        match maxQuantity with
+        | None -> false
+        | Some None -> true
+        | Some (Some maxQuantity) -> quantity <= maxQuantity
 
     let fromSlotData (timeProvider: TimeProvider) slotData =
         match slotData.ClosingDate with
@@ -33,12 +44,19 @@ module SlotType =
         // TODO no closing date, but now > start time
         | _ ->
             match slotData.RemainingCapacity with
-            | Some v when v <= 0 -> SlotTypeTaken
+            | Some v when v <= 0 ->
+                if slotData.CanRequestIfFullyBooked then
+                    SlotTypeTakenWithRequestPossible {|
+                        ClosingDate = slotData.ClosingDate
+                        MaxQuantityPerBooking = slotData.MaxQuantityPerBooking
+                    |}
+                else SlotTypeTaken
             | remainingCapacity ->
                 SlotTypeFree {|
                     ClosingDate = slotData.ClosingDate
                     MaxQuantityPerBooking = slotData.MaxQuantityPerBooking
                     RemainingCapacity = remainingCapacity
+                    CanRequestIfFullyBooked = slotData.CanRequestIfFullyBooked
                 |}
 type Slot = {
     StartTime: DateTime
@@ -49,14 +67,18 @@ module Slot =
     let fromSlotData (timeProvider: TimeProvider) slotData =
         { StartTime = slotData.Time; Duration = slotData.Duration; Type = SlotType.fromSlotData timeProvider slotData }
 
+type MailTemplate = {
+    Subject: string
+    ContentTemplate: string
+}
 type EventData = {
     Key: string
     Title: string
     InfoText: string
     ReservationStartTime: DateTime
     Slots: SlotData[]
-    MailSubject: string
-    MailContentTemplate: string
+    RegistrationConfirmationMail: MailTemplate
+    RequestConfirmationMail: MailTemplate option
 }
 type HiddenEventData = {
     Title: string
@@ -67,8 +89,8 @@ type ReleasedEventData = {
     Title: string
     InfoText: string
     Slots: Slot[]
-    MailSubject: string
-    MailContentTemplate: string
+    RegistrationConfirmationMail: MailTemplate
+    RequestConfirmationMail: MailTemplate option
 }
 type Event =
     | HiddenEvent of HiddenEventData
@@ -90,8 +112,8 @@ module Event =
                     eventData.Slots
                     |> Array.map (Slot.fromSlotData timeProvider)
                     |> Array.sortBy _.StartTime
-                MailSubject = eventData.MailSubject
-                MailContentTemplate = eventData.MailContentTemplate
+                RegistrationConfirmationMail = eventData.RegistrationConfirmationMail
+                RequestConfirmationMail = eventData.RequestConfirmationMail
             }
 
 type PositiveInteger = private PositiveInteger of int with
@@ -130,11 +152,18 @@ type Subscriber = {
     PhoneNumber: PhoneNumber
 }
 
+type BookingData = {
+    EventKey: string
+    SlotTime: DateTime
+    Subscriber: Subscriber
+    Timestamp: DateTime
+}
+
 type BookingValidationError =
     | EventNotFound
     | EventNotReleased
     | SlotNotFound
-    | SlotNotFree of Slot
+    | SlotUnavailable of Slot
     | InvalidSubscriptionQuantity
     | InvalidSubscriberName
     | InvalidMailAddress
@@ -142,3 +171,14 @@ type BookingValidationError =
     | MaxQuantityPerBookingExceeded
 type BookingError =
     | CapacityExceeded of remainingCapacity: int
+
+type MailUser = {
+    Name: string
+    MailAddress: string
+}
+
+type BookingConfirmationData = {
+    Recipient: MailUser
+    Subject: string
+    Content: string
+}

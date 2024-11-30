@@ -20,16 +20,69 @@ module Subscriber =
         return { Quantity = quantity; Name = name; MailAddress = mailAddress; PhoneNumber = phoneNumber }
     }
 
+    type ParseSubscriberResult =
+        | CanBook of Domain.BookingData * Domain.Slot * Domain.BookingConfirmationData
+        | CanRequestBooking of Domain.BookingData * Domain.Slot * Domain.BookingConfirmationData option
+
     let parse timeProvider eventData slotTimeString subscriber = validation {
         let! event = eventData |> Option.map (Domain.Event.fromEventData timeProvider) |> Result.requireSome Domain.EventNotFound
         let! releasedEvent = event |> Domain.Event.tryReleased |> Result.requireSome Domain.EventNotReleased
         let! slotTime = DateTime.tryParse slotTimeString |> Result.requireSome Domain.SlotNotFound
         let! slot = releasedEvent.Slots |> Seq.tryFind (fun v -> v.StartTime = slotTime) |> Result.requireSome Domain.SlotNotFound
-        let! freeSlot = slot.Type |> Domain.SlotType.tryFree |> Result.requireSome (Domain.SlotNotFree slot)
-        let! subscriber = parseDto subscriber
-        match freeSlot.MaxQuantityPerBooking with
-        | Some maxQuantityPerBooking ->
-            do! (subscriber.Quantity.Value <= maxQuantityPerBooking) |> Result.requireTrue Domain.MaxQuantityPerBookingExceeded
-        | None -> ()
-        return (releasedEvent, slot, subscriber)
+        match slot.Type with
+        | Domain.SlotTypeFree _ ->
+            let! subscriber = parseDto subscriber
+            do! Domain.SlotType.canBookQuantity subscriber.Quantity.Value slot.Type |> Result.requireTrue Domain.MaxQuantityPerBookingExceeded
+            let bookingData: Domain.BookingData = {
+                EventKey = releasedEvent.Key
+                SlotTime = slot.StartTime
+                Subscriber = subscriber
+                Timestamp = timeProvider.GetLocalNow().DateTime
+            }
+            let confirmationData: Domain.BookingConfirmationData = {
+                Recipient = {
+                    Name = subscriber.Name.Value
+                    MailAddress = subscriber.MailAddress.Value
+                }
+                Subject = releasedEvent.RegistrationConfirmationMail.Subject
+                Content =
+                    let templateVars = [
+                        "FullName", subscriber.Name.Value
+                        "Date", slot.StartTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
+                        "Time", slot.StartTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                    ]
+                    (releasedEvent.RegistrationConfirmationMail.ContentTemplate, templateVars)
+                    ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+            }
+            return CanBook (bookingData, slot, confirmationData)
+        | Domain.SlotTypeTakenWithRequestPossible _ ->
+            let! subscriber = parseDto subscriber
+            do! Domain.SlotType.canBookQuantity subscriber.Quantity.Value slot.Type |> Result.requireTrue Domain.MaxQuantityPerBookingExceeded
+            let bookingData: Domain.BookingData = {
+                EventKey = releasedEvent.Key
+                SlotTime = slot.StartTime
+                Subscriber = subscriber
+                Timestamp = timeProvider.GetLocalNow().DateTime
+            }
+            let requestConfirmationData: Domain.BookingConfirmationData option =
+                match releasedEvent.RequestConfirmationMail with
+                | Some mailTemplate ->
+                    Some {
+                        Recipient = {
+                            Name = subscriber.Name.Value
+                            MailAddress = subscriber.MailAddress.Value
+                        }
+                        Subject = mailTemplate.Subject
+                        Content =
+                            let templateVars = [
+                                "FullName", subscriber.Name.Value
+                                "Date", slot.StartTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
+                                "Time", slot.StartTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                            ]
+                            (mailTemplate.ContentTemplate, templateVars)
+                            ||> List.fold (fun text (varName, value) -> text.Replace(sprintf "{{{%s}}}" varName, value))
+                    }
+                | None -> None 
+            return CanRequestBooking (bookingData, slot, requestConfirmationData)
+        | _ -> return! Validation.error (Domain.SlotUnavailable slot)
     }

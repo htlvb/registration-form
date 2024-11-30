@@ -19,18 +19,21 @@ let private startDb() = task {
 
 let private insertSampleEvent (dataSource: NpgsqlDataSource) remainingCapacity = task {
     use! connection = dataSource.OpenConnectionAsync()
-    let! _ = connection.ExecuteAsync("INSERT INTO event (key, title, info_text, reservation_start_time, mail_subject, mail_content_template) VALUES ('schulfuehrungen-2025', 'Schulführungen 2025', 'Bitte melden Sie sich für eine Schulführung an.', '2024-09-29 00:00:00', 'Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck', '{{{FullName}}}, danke für die Anmeldung am {{{Date}}} um {{{Time}}}.')")
-    let! _ = connection.ExecuteAsync("INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity) VALUES ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, @RemainingCapacity)", {| RemainingCapacity = remainingCapacity |})
+    let! _ = connection.ExecuteAsync("INSERT INTO event (key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template) VALUES ('schulfuehrungen-2025', 'Schulführungen 2025', 'Bitte melden Sie sich für eine Schulführung an.', '2024-09-29 00:00:00', 'Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck', '{{{FullName}}}, danke für die Anmeldung am {{{Date}}} um {{{Time}}}.')")
+    let! _ = connection.ExecuteAsync("INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, @RemainingCapacity, FALSE)", {| RemainingCapacity = remainingCapacity |})
     ()
 }
 
-let private sampleEventRegistration quantity = {
-    time = DateTime(2025, 1, 28, 14, 0, 0)
-    quantity = quantity
-    name = "Albert"
-    mail_address = "albert@einstein.com"
-    phone_number = "07612/123456789"
-    time_stamp = DateTime.Now
+let private sampleEventRegistration quantity : Domain.BookingData = {
+    EventKey = "schulfuehrungen-2025"
+    SlotTime = DateTime(2025, 1, 28, 14, 0, 0)
+    Subscriber = {
+        Quantity = Domain.PositiveInteger.TryCreate quantity |> Option.get
+        Name = Domain.SubscriberName.TryCreate "Albert" |> Option.get
+        MailAddress = Domain.MailAddress.TryCreate "albert@einstein.com" |> Option.get
+        PhoneNumber = Domain.PhoneNumber.TryCreate "07612/123456789" |> Option.get
+    }
+    Timestamp = DateTime.Now
 }
 
 type BookingResult = {
@@ -40,10 +43,10 @@ type BookingResult = {
     Registrations: int
 }
 
-let makeParallelSampleEventBookings dataSource count registration = task {
+let makeParallelSampleEventBookings dataSource count bookingData = task {
     let eventStore : IEventStore = PgsqlEventStore(dataSource)
     let! bookingResults =
-        List.replicate count (eventStore.TryBook "schulfuehrungen-2025" registration)
+        List.replicate count (eventStore.TryBook bookingData)
         |> Async.Parallel
         |> Async.StartAsTask
     let succeededBookings = bookingResults |> Array.choose Result.toOption
