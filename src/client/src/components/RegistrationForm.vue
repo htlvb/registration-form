@@ -13,10 +13,7 @@ const props = defineProps<{
 
 const hasFreeSlot = computed(() => {
   return props.event.slots.some(slot => {
-    if (slot.type.type === 'free') {
-      return slot.type.remainingCapacity === null || slot.type.remainingCapacity > 0
-    }
-    return false
+    return slot.type.type === 'free' || slot.type.type === 'takenWithRequestPossible'
   })
 })
 
@@ -91,7 +88,7 @@ const doRegister = async () => {
       selectedSlot.value.type = bookingResult.slotType
     }
     isConfirmationMailSent.value = !bookingResult.mailSendError
-    if (selectedSlot.value.type.type !== 'free') {
+    if (selectedSlot.value.type.type !== 'free' && selectedSlot.value.type.type !== 'takenWithRequestPossible') {
       selectedSlot.value = undefined
     }
   }
