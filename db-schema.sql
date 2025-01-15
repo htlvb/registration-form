@@ -50,6 +50,9 @@ ALTER TABLE event RENAME COLUMN mail_content_template TO registration_confirmati
 ALTER TABLE event ADD COLUMN request_confirmation_mail_subject VARCHAR;
 ALTER TABLE event ADD COLUMN request_confirmation_mail_content_template VARCHAR;
 
+-- Save deregistration timestamp
+ALTER TABLE event_registration ADD COLUMN deregistration_time TIMESTAMP;
+
 -- Clean up
 /*
 DROP TABLE event_registration;
