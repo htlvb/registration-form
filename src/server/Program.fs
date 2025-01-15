@@ -3,6 +3,7 @@ module HTLVB.RegistrationForm.Server.Main
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 open Microsoft.Graph
 open Microsoft.Identity.Web
 open Npgsql
@@ -16,6 +17,10 @@ type WestEuropeTimeProvider() =
 [<EntryPoint>]
 let main args =
     let builder = WebApplication.CreateBuilder(args)
+
+    builder.Logging.AddEventLog(fun eventLogSettings ->
+        eventLogSettings.SourceName <- "HTLVB-RegistrationForm"
+    ) |> ignore
 
     builder.Services.AddSingleton<TimeProvider>(WestEuropeTimeProvider()) |> ignore
     let pgsqlConnectionString =
