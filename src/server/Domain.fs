@@ -39,10 +39,9 @@ module SlotType =
         | Some (Some maxQuantity) -> quantity <= maxQuantity
 
     let fromSlotData (timeProvider: TimeProvider) slotData =
-        match slotData.ClosingDate with
-        | Some closingDate when timeProvider.GetLocalNow().DateTime >= closingDate -> SlotTypeClosed
-        // TODO no closing date, but now > start time
-        | _ ->
+        let closingDate = slotData.ClosingDate |> Option.defaultValue slotData.Time
+        if timeProvider.GetLocalNow().DateTime >= closingDate then SlotTypeClosed
+        else
             match slotData.RemainingCapacity with
             | Some v when v <= 0 ->
                 if slotData.CanRequestIfFullyBooked then

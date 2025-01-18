@@ -66,6 +66,14 @@ watch(selectedDate, () => {
   }
 })
 
+watch(selectedSlot, () => {
+  if (selectedSlot.value === undefined) {
+    selectedDate.value = undefined
+    return
+  }
+  selectedDate.value = DateTime.getDate(new Date(selectedSlot.value.startTime)).toDateString()
+}, { immediate: true })
+
 const selectedDateSlots = computed(() => {
   if (selectedDate.value === undefined) return []
   const date = new Date(selectedDate.value)

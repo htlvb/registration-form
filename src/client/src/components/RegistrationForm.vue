@@ -92,9 +92,6 @@ const doRegister = async () => {
       selectedSlot.value.type = bookingResult.slotType
     }
     isConfirmationMailSent.value = !bookingResult.mailSendError
-    if (selectedSlot.value.type.type !== 'free' && selectedSlot.value.type.type !== 'takenWithRequestPossible') {
-      selectedSlot.value = undefined
-    }
   }
   else if (result.response !== undefined) {
     let errors = await result.response.json() as BookingError[]
@@ -142,33 +139,34 @@ const doRegister = async () => {
   else {
     registrationErrorMessages.value = [ `Beim Speichern der Registrierung ist ein Fehler aufgetreten. Bitte versuchen sie es erneut oder kontaktieren sie uns unter <a href="mailto:office@htlvb.at?subject=${props.event.title}" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a>.` ]
   }
+  if (selectedSlot.value.type.type !== 'free' && selectedSlot.value.type.type !== 'takenWithRequestPossible') {
+    selectedSlot.value = undefined
+  }
 }
 </script>
 
 <template>
-  <div v-if="!hasFreeSlot && registrationState === undefined && !isRegistering && registrationErrorMessages.length === 0" class="flex justify-center items-center gap-2 p-4 rounded font-semibold">
-    <span>
-      Leider sind keine Termine mehr frei.
-      Bitte kontaktieren sie uns unter
-      <a :href="`mailto:office@htlvb.at?subject=${props.event.title}`" class="underline">office@htlvb.at</a> bzw.
-      <a href="tel:+43767224605" class="underline">07672/24605</a>.
-    </span>
-  </div>
-  <template v-else>
-    <div v-html="infoText" class="info-text my-6"></div>
-    <form @submit.prevent="doRegister" class="my-6">
-      <fieldset :disabled="isRegistering">
-        <SlotSelection :slots="event.slots" v-model="selectedSlot" />
-        <template v-if="selectedSlotMaxQuantity > 1">
-          <h2 class="text-lg mt-4">Anzahl Personen</h2>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button v-for="quantity in _.range(1, selectedSlotMaxQuantity + 1)" :key="quantity" type="button" class="button"
-              :class="{ 'button-htlvb-selected': selectedQuantity !== undefined && selectedQuantity >= quantity }"
-              @click="selectedQuantity = quantity">
-              {{ quantity }}
-            </button>
-          </div>
-        </template>
+  <div v-html="infoText" class="info-text my-6"></div>
+  <form @submit.prevent="doRegister" class="my-6">
+    <fieldset :disabled="isRegistering">
+      <SlotSelection :slots="event.slots" v-model="selectedSlot" />
+      <template v-if="selectedSlotMaxQuantity > 1">
+        <h2 class="text-lg mt-4">Anzahl Personen</h2>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button v-for="quantity in _.range(1, selectedSlotMaxQuantity + 1)" :key="quantity" type="button" class="button"
+            :class="{ 'button-htlvb-selected': selectedQuantity !== undefined && selectedQuantity >= quantity }"
+            @click="selectedQuantity = quantity">
+            {{ quantity }}
+          </button>
+        </div>
+      </template>
+      <div v-if="!hasFreeSlot && registrationState === undefined && registrationErrorMessages.length === 0" class="py-4 font-semibold">
+        Leider sind keine Termine mehr frei.
+        Bitte kontaktieren Sie uns unter
+        <a :href="`mailto:office@htlvb.at?subject=${props.event.title}`" class="underline">office@htlvb.at</a> bzw.
+        <a href="tel:+43767224605" class="underline">07672/24605</a>.
+      </div>
+      <template v-else>
         <h2 class="text-lg mt-4">Kontaktdaten</h2>
         <label class="input mt-2">
           <span class="input-label">Name</span>
@@ -206,9 +204,9 @@ const doRegister = async () => {
             <li v-for="content in registrationErrorMessages" :key="content" v-html="content"></li>
           </ul>
         </div>
-      </fieldset>
-    </form>
-  </template>
+      </template>
+    </fieldset>
+  </form>
 </template>
 
 <style lang="css" scoped>
