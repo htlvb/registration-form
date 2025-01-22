@@ -7,9 +7,9 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim-amd64 AS build-server
 WORKDIR /src
-COPY ["./src/server/HTLVB.RegistrationForm.Server.fsproj", "./server/"]
+COPY ["./src/user-app-server/HTLVB.RegistrationForm.Server.fsproj", "./server/"]
 RUN dotnet restore server
-COPY ./src/server ./server
+COPY ./src/user-app-server ./server
 WORKDIR /src/server
 RUN dotnet build -c Release -o /app/build
 
@@ -18,9 +18,9 @@ RUN dotnet publish -c Release -o /app/publish
 
 FROM node:20 AS build-client
 WORKDIR /src
-COPY src/client/package.json src/client/package-lock.json ./
+COPY src/user-app-client/package.json src/user-app-client/package-lock.json ./
 RUN npm ci
-COPY src/client .
+COPY src/user-app-client .
 RUN npm run build
 
 FROM base AS final

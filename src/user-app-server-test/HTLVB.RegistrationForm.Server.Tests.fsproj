@@ -41,7 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\server\HTLVB.RegistrationForm.Server.fsproj" />
+    <ProjectReference Include="..\user-app-server\HTLVB.RegistrationForm.Server.fsproj" />
   </ItemGroup>
 
 </Project>

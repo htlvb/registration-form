@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server", "src\server\HTLVB.RegistrationForm.Server.fsproj", "{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server", "src\user-app-server\HTLVB.RegistrationForm.Server.fsproj", "{CA2D14B2-012D-4709-A8D2-F14F1F0F00A2}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server.Tests", "src\test\HTLVB.RegistrationForm.Server.Tests.fsproj", "{BCABED60-4FB9-4A30-807A-018C6698ED46}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "HTLVB.RegistrationForm.Server.Tests", "src\user-app-server-test\HTLVB.RegistrationForm.Server.Tests.fsproj", "{BCABED60-4FB9-4A30-807A-018C6698ED46}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
