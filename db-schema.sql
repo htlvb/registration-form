@@ -53,6 +53,10 @@ ALTER TABLE event ADD COLUMN request_confirmation_mail_content_template VARCHAR;
 -- Save deregistration timestamp
 ALTER TABLE event_registration ADD COLUMN deregistration_time TIMESTAMP;
 
+-- Reference slot instead of event
+ALTER TABLE event_registration ADD FOREIGN KEY (event_key, time) REFERENCES event_slot(event_key, time);
+ALTER TABLE event_registration DROP CONSTRAINT event_registration_event_key_fkey;
+
 -- Clean up
 /*
 DROP TABLE event_registration;
