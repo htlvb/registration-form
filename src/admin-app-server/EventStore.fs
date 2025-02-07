@@ -57,7 +57,6 @@ module DbEvent =
 
 type DbEventRegistration = {
     id: int
-    time: DateTime
     quantity: int
     name: string
     mail_address: string
@@ -70,7 +69,6 @@ module DbEventRegistration =
     let toDomain dbEventRegistration : Domain.EventRegistration =
         {
             Id = string dbEventRegistration.id
-            Time = dbEventRegistration.time
             Quantity = dbEventRegistration.quantity
             Name = dbEventRegistration.name
             MailAddress = dbEventRegistration.mail_address
@@ -83,8 +81,10 @@ module DbEventRegistration =
 type IEventStore =
     abstract member CreateEvent: event: Domain.EventData -> Async<unit>
     abstract member GetEvents: unit -> Async<Domain.EventData list>
-    abstract member GetEventRegistrations: eventKey: string -> Async<Domain.EventRegistration list>
     abstract member UpdateEvent: eventKey: string -> data: Domain.EventUpdateData -> Async<unit>
+    abstract member DeleteEvent: eventKey: string -> Async<unit>
+    abstract member GetEventRegistrations: eventKey: string -> time: DateTime -> Async<Domain.EventRegistration list>
+    abstract member CancelEventRegistration: registrationId: string -> deregistrationTime: DateTime -> Async<unit>
 
 type PgsqlEventStore(dataSource: NpgsqlDataSource) =
     let insertSlots (connection: IDbConnection) tx (eventKey: string) (slots: Domain.Slot[]) = async {
@@ -204,11 +204,6 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                 |> Seq.toList
         }
 
-        member _.GetEventRegistrations eventKey = async {
-            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
-            return result |> Seq.map DbEventRegistration.toDomain |> Seq.toList
-        }        
         member _.UpdateEvent eventKey data = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
             use! tx = connection.BeginTransactionAsync().AsTask() |> Async.AwaitTask
@@ -260,4 +255,20 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             do! deleteSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.DeleteSlot time -> Some time | _ -> None))
 
             do! tx.CommitAsync() |> Async.AwaitTask
+        }
+
+        member _.DeleteEvent eventKey = async {
+            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+            do! connection.ExecuteAsync("DELETE FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask |> Async.Ignore
+        }
+
+        member _.GetEventRegistrations eventKey time = async {
+            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = time |}) |> Async.AwaitTask
+            return result |> Seq.map DbEventRegistration.toDomain |> Seq.toList
+        }
+
+        member _.CancelEventRegistration registrationId timestamp = async {
+            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+            do! connection.ExecuteAsync("UPDATE event_registration SET deregistration_time = @DeregistrationTime WHERE id = @RegistrationId AND deregistration_time IS NULL", {| RegistrationId = int registrationId; DeregistrationTime = timestamp |}) |> Async.AwaitTask |> Async.Ignore
         }

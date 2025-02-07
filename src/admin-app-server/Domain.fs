@@ -100,7 +100,6 @@ type EventUpdateData = {
 
 type EventRegistration = {
     Id: string
-    Time: DateTime
     Quantity: int
     Name: string
     MailAddress: string

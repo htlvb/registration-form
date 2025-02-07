@@ -21,6 +21,27 @@ let startDb = async {
 let getDataSource (db: PostgreSqlContainer) =
     NpgsqlDataSourceBuilder($"{db.GetConnectionString()};Include Error Detail=true").EnableDynamicJson().Build()
 
+let addRegistration (dataSource: NpgsqlDataSource) (eventKey: string) (time: DateTime) = async {
+    use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+    let fields = [
+        ("event_key", eventKey :> obj)
+        ("time", time)
+        ("quantity", 1)
+        ("name", "Albert Einstein")
+        ("mail_address", "albert@einstein.com")
+        ("phone_number", "0732 524326")
+        ("time_stamp", DateTime.Now)
+        ("is_request", false)
+    ]
+    let fieldNames = fields |> List.map fst |> String.concat ", "
+    let parameterNames = fields |> List.map (fst >> sprintf "@%s") |> String.concat ", "
+    let parameters =
+        let p = DynamicParameters()
+        fields |> List.iter (fun (name, value) -> p.Add(name, value))
+        p
+    return! connection.QuerySingleAsync<int>($"INSERT INTO event_registration (%s{fieldNames}) VALUES (%s{parameterNames}) RETURNING id", parameters) |> Async.AwaitTask
+}
+
 [<Tests>]
 let tests =
     testList "PgsqlEventStore" [
@@ -255,26 +276,7 @@ let tests =
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
             }
-            do! async {
-                use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-                let fields = [
-                    ("event_key", "lets-code-2425" :> obj)
-                    ("time", DateTime.Today.AddDays(1).AddHours(8))
-                    ("quantity", 1)
-                    ("name", "Albert Einstein")
-                    ("mail_address", "albert@einstein.com")
-                    ("phone_number", "0732 524326")
-                    ("time_stamp", DateTime.Now)
-                    ("is_request", false)
-                ]
-                let fieldNames = fields |> List.map fst |> String.concat ", "
-                let parameterNames = fields |> List.map (fst >> sprintf "@%s") |> String.concat ", "
-                let parameters =
-                    let p = DynamicParameters()
-                    fields |> List.iter (fun (name, value) -> p.Add(name, value))
-                    p
-                do! connection.ExecuteAsync($"INSERT INTO event_registration (%s{fieldNames}) VALUES (%s{parameterNames})", parameters) |> Async.AwaitTask |> Async.Ignore
-            }
+            do! addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8)) |> Async.Ignore
             let isFKConstraintViolation (e: exn) =
                 match e with
                 | :? AggregateException as e ->
@@ -305,5 +307,67 @@ let tests =
             with
                 | e when isFKConstraintViolation e -> ()
                 | e -> failtest $"Updating event slot time with registration should fail with foreign key constraint violation, but got %A{e}"
+        }
+
+        testCaseTask "Can delete event without registrations" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            do! eventStore.CreateEvent {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [|
+                    {
+                        Time = DateTime.Today.AddDays(1).AddHours(8)
+                        Duration = None
+                        ClosingDate = None
+                        MaxQuantityPerBooking = Some 10
+                        RemainingCapacity = Some 100
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+            }
+            do! eventStore.DeleteEvent "lets-code-2425"
+            let! events = eventStore.GetEvents ()
+            Expect.isEmpty events "Event should have been deleted"
+        }
+
+        testCaseTask "Can cancel event registration" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            do! eventStore.CreateEvent {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [|
+                    {
+                        Time = DateTime.Today.AddDays(1).AddHours(8)
+                        Duration = None
+                        ClosingDate = None
+                        MaxQuantityPerBooking = Some 10
+                        RemainingCapacity = Some 100
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+            }
+            let! registrationId = addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8))
+            let cancelTimestamp =
+                let d = DateTime.Now
+                DateTime(d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second, d.Millisecond, d.Microsecond)
+            do! eventStore.CancelEventRegistration (string registrationId) cancelTimestamp
+            let! actual = async {
+                let! registrations = eventStore.GetEventRegistrations "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8))
+                return registrations |> List.map _.DeregistrationTime
+            }
+            let expected = [ Some cancelTimestamp ]
+            Expect.equal actual expected "Event registration should have deregistration time"
         }
     ]

@@ -57,6 +57,11 @@ ALTER TABLE event_registration ADD COLUMN deregistration_time TIMESTAMP;
 ALTER TABLE event_registration ADD FOREIGN KEY (event_key, time) REFERENCES event_slot(event_key, time);
 ALTER TABLE event_registration DROP CONSTRAINT event_registration_event_key_fkey;
 
+-- Delete slots when event is deleted
+ALTER TABLE event_slot
+    DROP CONSTRAINT event_slot_event_key_fkey,
+    ADD FOREIGN KEY (event_key) REFERENCES event(key) ON UPDATE CASCADE ON DELETE CASCADE;
+
 -- Clean up
 /*
 DROP TABLE event_registration;
