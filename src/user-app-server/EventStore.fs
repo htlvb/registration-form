@@ -53,18 +53,8 @@ module DbEvent =
                 | _ -> None
         }
 
-type EventRegistration = {
-    time: DateTime
-    quantity: int
-    name: string
-    mail_address: string
-    phone_number: string
-    time_stamp: DateTime
-}
-
 type IEventStore =
     abstract member TryGetEvent: eventKey: string -> Async<Domain.EventData option>
-    abstract member GetEventRegistrations: eventKey: string -> Async<EventRegistration list>
     abstract member TryBook: Domain.BookingData -> Async<Result<int option, Domain.BookingError>>
     abstract member AddBookingRequest: Domain.BookingData -> Async<unit>
 
@@ -78,12 +68,6 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                 let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
                 return DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots) |> Some
             | _ -> return None
-        }
-
-        member _.GetEventRegistrations eventKey = async {
-            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! result = connection.QueryAsync<EventRegistration>("SELECT time, quantity, name, mail_address, phone_number, time_stamp FROM event_registration WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
-            return Seq.toList result
         }
 
         member _.TryBook bookingData = async {
