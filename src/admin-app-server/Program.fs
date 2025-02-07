@@ -1,35 +1,41 @@
-namespace HTLVB.RegistrationForm.Admin.Server
-open System
-open System.Collections.Generic
-open System.IO
-open System.Linq
-open System.Threading.Tasks
-open Microsoft.AspNetCore
+module HTLVB.RegistrationForm.Admin.Server.Main
+
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
-open Microsoft.AspNetCore.HttpsPolicy
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
-open Microsoft.Extensions.Logging
+open Npgsql
+open System
 
-module Program =
-    let exitCode = 0
+type WestEuropeTimeProvider() =
+    inherit TimeProvider()
 
-    [<EntryPoint>]
-    let main args =
+    override _.LocalTimeZone with get () = TimeZoneInfo.FindSystemTimeZoneById("W. Europe Standard Time")
 
-        let builder = WebApplication.CreateBuilder(args)
 
-        builder.Services.AddControllers()
+[<EntryPoint>]
+let main args =
 
-        let app = builder.Build()
+    let builder = WebApplication.CreateBuilder(args)
 
-        app.UseHttpsRedirection()
+    builder.Services.AddSingleton<TimeProvider>(WestEuropeTimeProvider()) |> ignore
 
-        app.UseAuthorization()
-        app.MapControllers()
+    let pgsqlConnectionString =
+        builder.Configuration.GetConnectionString("Pgsql")
+        |> Option.ofObj
+        |> Option.defaultWith (fun () -> failwith "Can't find \"ConnectionStrings:Pgsql\"")
+    builder.Services.AddSingleton(NpgsqlDataSourceBuilder(pgsqlConnectionString).EnableDynamicJson().Build()) |> ignore
+    builder.Services.AddSingleton<IEventStore, PgsqlEventStore>() |> ignore
 
-        app.Run()
+    builder.Services.AddControllers() |> ignore
 
-        exitCode
+    let app = builder.Build()
+
+    app.UseHttpsRedirection() |> ignore
+
+    app.UseAuthorization() |> ignore
+    app.MapControllers() |> ignore
+
+    app.Run()
+
+    0

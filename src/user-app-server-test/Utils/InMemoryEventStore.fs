@@ -1,6 +1,16 @@
 namespace HTLVB.RegistrationForm.Server.Tests
 
 open HTLVB.RegistrationForm.Server
+open System
+
+type EventRegistration = {
+    Time: DateTime
+    Quantity: int
+    Name: string
+    MailAddress: string
+    PhoneNumber: string
+    Timestamp: DateTime
+}
 
 type InMemoryEventStore(events, eventRegistrations) =
     let mutable events = events
@@ -8,9 +18,6 @@ type InMemoryEventStore(events, eventRegistrations) =
     interface IEventStore with
         member _.TryGetEvent eventKey = async {
             return Map.tryFind eventKey events
-        }
-        member _.GetEventRegistrations eventKey = async {
-            return eventRegistrations |> Map.tryFind eventKey |> Option.defaultValue []
         }
         member _.TryBook bookingData = async {
             let remainingCapacity =
@@ -43,12 +50,12 @@ type InMemoryEventStore(events, eventRegistrations) =
                         else event
                     )
                 let eventRegistration = {
-                    time = bookingData.SlotTime
-                    quantity = bookingData.Subscriber.Quantity.Value
-                    name = bookingData.Subscriber.Name.Value
-                    mail_address = bookingData.Subscriber.MailAddress.Value
-                    phone_number = bookingData.Subscriber.PhoneNumber.Value
-                    time_stamp = bookingData.Timestamp
+                    Time = bookingData.SlotTime
+                    Quantity = bookingData.Subscriber.Quantity.Value
+                    Name = bookingData.Subscriber.Name.Value
+                    MailAddress = bookingData.Subscriber.MailAddress.Value
+                    PhoneNumber = bookingData.Subscriber.PhoneNumber.Value
+                    Timestamp = bookingData.Timestamp
                 }
                 eventRegistrations <-
                     eventRegistrations

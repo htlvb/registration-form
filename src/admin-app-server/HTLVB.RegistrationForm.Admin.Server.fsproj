@@ -6,9 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="WeatherForecast.fs" />
-    <Compile Include="Controllers/WeatherForecastController.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="DataTransfer.fs" />
+    <Compile Include="DtoMapping.fs" />
+    <Compile Include="DtoParsing.fs" />
+    <Compile Include="EventStore.fs" />
+    <Compile Include="Controllers/EventController.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="Npgsql" Version="9.0.2" />
   </ItemGroup>
 
 </Project>
