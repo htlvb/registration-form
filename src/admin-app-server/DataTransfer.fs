@@ -10,7 +10,7 @@ type Slot = {
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
-    Url: string
+    RegistrationsUrl: string
 }
 
 type MailTemplate = {
@@ -120,4 +120,15 @@ type PatchSlotData = {
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
+}
+
+type EventRegistration = {
+    Quantity: int
+    Name: string
+    MailAddress: string
+    PhoneNumber: string
+    Timestamp: DateTime
+    IsRequest: bool
+    DeregistrationTime: DateTime option
+    Url: string
 }
