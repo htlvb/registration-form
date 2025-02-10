@@ -14,7 +14,7 @@
             "problemMatcher": [],
         },
         {
-            "label": "Run server",
+            "label": "Run user app server",
             "type": "process",
             "command": "dotnet",
             "args": [
@@ -29,23 +29,65 @@
             },
         },
         {
-            "label": "Restore client packages",
+            "label": "Restore user app client packages",
             "type": "npm",
             "script": "install",
             "path": "src/user-app-client",
             "problemMatcher": [],
         },
         {
-            "label": "Run client",
+            "label": "Run user app client",
             "type": "npm",
             "script": "dev",
             "path": "src/user-app-client",
             "problemMatcher": [],
-            "dependsOn": "Restore client packages",
+            "dependsOn": "Restore user app client packages",
         },
         {
-            "label": "Dev",
-            "dependsOn": [ "Run DB", "Run server", "Run client" ]
+            "label": "Run admin app server",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "watch",
+                "run",
+                "--environment", "Development",
+                "--urls", "https://localhost:5051",
+            ],
+            "problemMatcher": "$msCompile",
+            "options": {
+                "cwd": "${workspaceFolder}/src/admin-app-server",
+            },
+        },
+        {
+            "label": "Restore admin client app packages",
+            "type": "npm",
+            "script": "install",
+            "path": "src/admin-app-client",
+            "problemMatcher": [],
+        },
+        {
+            "label": "Run admin app client",
+            "type": "npm",
+            "script": "dev",
+            "path": "src/admin-app-client",
+            "problemMatcher": [],
+            "dependsOn": "Restore admin client app packages",
+        },
+        {
+            "label": "Dev user app",
+            "dependsOn": [
+                "Run DB",
+                "Run user app server",
+                "Run user app client",
+            ],
+        },
+        {
+            "label": "Dev admin app",
+            "dependsOn": [
+                "Run DB",
+                "Run admin app server",
+                "Run admin app client",
+            ],
         },
     ]
 }
