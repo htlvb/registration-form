@@ -1,11 +1,10 @@
 $SubscriptionName = "Pay-As-You-Go"
-$ServerAppName = "RegistrationForm-Server"
+$ServerAppName = "RegistrationForm-VisitorServer"
 
 "=== Logging in"
 az account set --name $SubscriptionName
-$SubscriptionId = az account show --query id -o tsv
 
-"=== Creating server app registration"
+"=== Creating visitor server app registration"
 $MSGraphId = az ad sp list --filter "displayname eq 'Microsoft Graph'" --query "[].appId" -o tsv
 $ServerAppRequiredResourceAccesses = New-TemporaryFile
 @"
@@ -26,7 +25,7 @@ Remove-Item $ServerAppRequiredResourceAccesses
 
 $ServerAppCredentials = az ad app credential reset --id $ServerApp.appId --display-name Initial --years 2 --append | ConvertFrom-Json
 
-"=== Giving admin consent to server and client app permissions"
+"=== Giving admin consent to visitor server app permissions"
 "!!! Login with admin account !!!"
 az login --use-device-code --allow-no-subscriptions -o none
 az ad app permission admin-consent --id $ServerApp.appId
