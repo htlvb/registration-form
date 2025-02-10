@@ -74,6 +74,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             let! actual = eventStore.GetEvents()
             let expected : Domain.EventData list = [
@@ -102,6 +103,7 @@ let tests =
                     |]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
             Expect.equal actual expected "Event should have been created"
@@ -119,6 +121,7 @@ let tests =
                 Slots = [||]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.UpdateEvent "lets-code-2425" {
                 Key = Some "lets-code-2425-1"
@@ -139,6 +142,7 @@ let tests =
                     Slots = [||]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
             Expect.equal actual expected "Key should have been updated"
@@ -165,6 +169,7 @@ let tests =
                 )
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.UpdateEvent "lets-code-2425" {
                 Key = None
@@ -249,6 +254,7 @@ let tests =
                     |]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
             Expect.equal actual expected "Event slots should have been updated"
@@ -275,6 +281,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             do! addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8)) |> Async.Ignore
             let isFKConstraintViolation (e: exn) =
@@ -330,6 +337,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.DeleteEvent "lets-code-2425"
             let! events = eventStore.GetEvents ()
@@ -357,6 +365,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
             }
             let! registrationId = addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8))
             let cancelTimestamp =

@@ -62,6 +62,11 @@ ALTER TABLE event_slot
     DROP CONSTRAINT event_slot_event_key_fkey,
     ADD FOREIGN KEY (event_key) REFERENCES event(key) ON UPDATE CASCADE ON DELETE CASCADE;
 
+-- Add event editors
+ALTER TABLE event ADD COLUMN editor_ids JSONB;
+UPDATE event SET editor_ids = '[]'::jsonb;
+ALTER TABLE event ALTER COLUMN editor_ids SET NOT NULL;
+
 -- Clean up
 /*
 DROP TABLE event_registration;

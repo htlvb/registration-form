@@ -1,0 +1,22 @@
+@token=eyJ0...S65Q
+@baseUrl = http://localhost:5051
+
+GET {{baseUrl}}/api/events
+Authorization: Bearer {{token}}
+
+###
+
+PATCH {{baseUrl}}/api/events/lets-code-2425
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "key": null,
+    "title": "Let's Code 24/25",
+    "infoText": null,
+    "reservationStartTime": null,
+    "slots": [],
+    "registrationConfirmationMail": null,
+    "requestConfirmationMail": null,
+    "setRequestConfirmationMail": false
+}

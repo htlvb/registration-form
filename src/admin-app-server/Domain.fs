@@ -22,6 +22,7 @@ type EventData = {
     Slots: Slot[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    EditorIds: string[]
 }
 type DraftEventData = {
     Key: string
@@ -100,6 +101,8 @@ type EventUpdateData = {
 
 type EventRegistration = {
     Id: string
+    EventKey: string
+    Time: DateTime
     Quantity: int
     Name: string
     MailAddress: string

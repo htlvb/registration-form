@@ -4,6 +4,7 @@ open Dapper
 open Npgsql
 open System
 open System.Data
+open System.Text.Json
 
 type DbEventSlot = {
     event_key: string
@@ -35,6 +36,7 @@ type DbEvent = {
     registration_confirmation_mail_content_template: string
     request_confirmation_mail_subject: string
     request_confirmation_mail_content_template: string
+    editor_ids: string
 }
 
 module DbEvent =
@@ -53,10 +55,13 @@ module DbEvent =
                 match Option.ofObj dbEvent.request_confirmation_mail_subject, Option.ofObj dbEvent.request_confirmation_mail_content_template with
                 | Some subject, Some contentTemplate -> Some { Subject = subject; ContentTemplate = contentTemplate }
                 | _ -> None
+            EditorIds = JsonSerializer.Deserialize(dbEvent.editor_ids)
         }
 
 type DbEventRegistration = {
     id: int
+    event_key: string
+    time: DateTime
     quantity: int
     name: string
     mail_address: string
@@ -69,6 +74,8 @@ module DbEventRegistration =
     let toDomain dbEventRegistration : Domain.EventRegistration =
         {
             Id = string dbEventRegistration.id
+            EventKey = dbEventRegistration.event_key
+            Time = dbEventRegistration.time
             Quantity = dbEventRegistration.quantity
             Name = dbEventRegistration.name
             MailAddress = dbEventRegistration.mail_address
@@ -81,9 +88,11 @@ module DbEventRegistration =
 type IEventStore =
     abstract member CreateEvent: event: Domain.EventData -> Async<unit>
     abstract member GetEvents: unit -> Async<Domain.EventData list>
+    abstract member TryGetEvent: eventKey: string -> Async<Domain.EventData option>
     abstract member UpdateEvent: eventKey: string -> data: Domain.EventUpdateData -> Async<unit>
     abstract member DeleteEvent: eventKey: string -> Async<unit>
     abstract member GetEventRegistrations: eventKey: string -> time: DateTime -> Async<Domain.EventRegistration list>
+    abstract member GetEventRegistration: registrationId: string -> Async<Domain.EventRegistration option>
     abstract member CancelEventRegistration: registrationId: string -> deregistrationTime: DateTime -> Async<unit>
 
 type PgsqlEventStore(dataSource: NpgsqlDataSource) =
@@ -192,7 +201,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
         member _.GetEvents () = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template FROM event") |> Async.AwaitTask
+            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, editor_ids FROM event") |> Async.AwaitTask
             let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = ANY(@EventKeys)", {| EventKeys = dbEvents |> Seq.map _.key |> Seq.toArray |}) |> Async.AwaitTask
             let dbEventSlotMap = dbEventSlots |> Seq.groupBy _.event_key |> Map.ofSeq
             return
@@ -202,6 +211,16 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                     DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots)
                 )
                 |> Seq.toList
+        }
+
+        member _.TryGetEvent eventKey = async {
+            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, editor_ids FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+            match Seq.tryExactlyOne dbEvents with
+            | None -> return None
+            | Some dbEvent ->
+                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+                return Some (DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots))
         }
 
         member _.UpdateEvent eventKey data = async {
@@ -264,8 +283,14 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
         member _.GetEventRegistrations eventKey time = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = time |}) |> Async.AwaitTask
+            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = time |}) |> Async.AwaitTask
             return result |> Seq.map DbEventRegistration.toDomain |> Seq.toList
+        }
+
+        member _.GetEventRegistration registrationId = async {
+            use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
+            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE id = @RegistrationId", {| RegistrationId = registrationId |}) |> Async.AwaitTask
+            return result |> Seq.tryExactlyOne |> Option.map DbEventRegistration.toDomain
         }
 
         member _.CancelEventRegistration registrationId timestamp = async {
