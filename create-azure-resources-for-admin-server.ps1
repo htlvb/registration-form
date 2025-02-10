@@ -93,8 +93,8 @@ $ClientApp = az ad app create --display-name $ClientAppName `
 $ClientAppSpaRedirectUris = New-TemporaryFile
 @{
     redirectUris = @(
-        "https://localhost/authentication/login-callback"
-        "https://admin.registration.htlvb.at/authentication/login-callback"
+        "http://localhost"
+        "https://admin.registration.htlvb.at"
     )
 } | ConvertTo-Json | Set-Content $ClientAppSpaRedirectUris
 az ad app update --id $ClientApp.appId --set spa=@$ClientAppSpaRedirectUris
