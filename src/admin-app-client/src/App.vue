@@ -1,50 +1,56 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
-import { getAccessToken } from './auth'
+import { ref } from 'vue'
+import LoginInformation from './components/LoginInformation.vue'
+import LoadingBar from './components/LoadingBar.vue'
+import ErrorWithRetry from './components/ErrorWithRetry.vue'
+import { uiFetchAuthorized } from './UIFetch'
+import type { Dto } from './DataTransfer'
+import EventList from './EventList.vue'
 
-getAccessToken([]).then(console.log)
+const isLoadingEvents = ref(false)
+const hasLoadingEventsFailed = ref(false)
+const events = ref<Dto.Event[]>()
+const loadEvents = async () => {
+  const result = await uiFetchAuthorized(isLoadingEvents, hasLoadingEventsFailed, "/api/events")
+  if (result.succeeded) {
+    events.value = await result.response.json() as Dto.Event[]
+  }
+}
+loadEvents()
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
+  <header class="bg-blue-htlvb">
+    <div class="container mx-auto flex flex-col sm:flex-row gap-2 sm:gap-6 my-4 px-4">
+      <div>
+        <img src="@/assets/logo.svg" class="h-[80px]" />
+      </div>
+      <div class="grow flex flex-col gap-2 text-slate-300">
+        <span class="text-2xl small-caps">Eventregistrierung</span>
+        <span class="text-4xl small-caps">Administration</span>
+      </div>
+      <LoginInformation class="self-end" />
     </div>
   </header>
 
-  <main>
-    <TheWelcome />
+  <main class="container mx-auto">
+    <section class="flex flex-col gap-4 mx-4 my-2">
+      <LoadingBar v-if="isLoadingEvents"></LoadingBar>
+      <ErrorWithRetry v-else-if="hasLoadingEventsFailed" @retry="loadEvents">Fehler beim Laden der Events.</ErrorWithRetry>
+      <template v-else-if="events !== undefined">
+        <section class="border rounded px-4 py-2">
+          <h2 class="text-2xl">Entwürfe</h2>
+          <EventList :events="events.filter(v => v.type === 'draft')" />
+        </section>
+        <section class="border rounded px-4 py-2">
+          <h2 class="text-2xl">Aktive Events</h2>
+          <EventList :events="events.filter(v => v.type === 'released')" />
+        </section>
+        <section class="border rounded px-4 py-2">
+          <h2 class="text-2xl">Archiv</h2>
+          <EventList :events="events.filter(v => v.type === 'archived')" />
+        </section>
+      </template>
+    </section>
   </main>
 </template>
-
-<style scoped>
-header {
-  line-height: 1.5;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-}
-</style>

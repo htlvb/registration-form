@@ -1,1 +1,30 @@
 @import "tailwindcss";
+
+@import '@fortawesome/fontawesome-free/css/fontawesome.css';
+@import '@fortawesome/fontawesome-free/css/regular.css';
+@import '@fortawesome/fontawesome-free/css/solid.css';
+@import '@fortawesome/fontawesome-free/css/brands.css';
+
+@theme {
+  --color-blue-htlvb: #183f7c;
+}
+
+.small-caps {
+  font-variant: small-caps;
+}
+
+.button {
+  @apply inline-block cursor-pointer font-semibold py-2 px-4 border rounded;
+}
+.button:disabled {
+  @apply cursor-not-allowed opacity-50;
+}
+.button:hover:not(:disabled) {
+  @apply shadow;
+}
+.button-htlvb {
+  @apply text-blue-htlvb border-blue-htlvb;
+}
+.button-red {
+  @apply text-rose-400 border-rose-400;
+}

@@ -297,3 +297,188 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
             do! connection.ExecuteAsync("UPDATE event_registration SET deregistration_time = @DeregistrationTime WHERE id = @RegistrationId AND deregistration_time IS NULL", {| RegistrationId = int registrationId; DeregistrationTime = timestamp |}) |> Async.AwaitTask |> Async.Ignore
         }
+
+type InMemoryEventStore(events) =
+    let mutable events = events
+    interface IEventStore with
+        member _.CreateEvent event = async {
+            events <- event :: events
+        }
+        member _.GetEvents() = async {
+            return events
+        }
+        member _.TryGetEvent(eventKey: string) = async {
+            return events |> List.tryFind (fun v -> v.Key = eventKey)
+        }
+        member _.UpdateEvent eventKey data = async {
+            let updateSlot (slot: Domain.Slot) (update: Domain.SlotUpdateData) : Domain.Slot =
+                {
+                    Time = update.Time |> Option.defaultValue slot.Time
+                    Duration = update.Duration |> Option.defaultValue slot.Duration
+                    ClosingDate = update.ClosingDate |> Option.defaultValue slot.ClosingDate
+                    MaxQuantityPerBooking = update.MaxQuantityPerBooking |> Option.defaultValue slot.MaxQuantityPerBooking
+                    RemainingCapacity = update.RemainingCapacity |> Option.defaultValue slot.RemainingCapacity
+                    CanRequestIfFullyBooked = update.CanRequestIfFullyBooked |> Option.defaultValue slot.CanRequestIfFullyBooked
+                }
+            let applySlotUpdate (slots: Domain.Slot[]) (update: Domain.SlotUpdate) =
+                match update with
+                | Domain.CreateSlot v -> [| v; yield! slots |]
+                | Domain.UpdateSlot (time, update) ->
+                    slots |> Array.map (fun v -> if v.Time = time then updateSlot v update else v)
+                | Domain.DeleteSlot time -> slots |> Array.filter (fun v -> v.Time <> time)
+            let update (event: Domain.EventData) (data: Domain.EventUpdateData) : Domain.EventData =
+                {
+                    Key = data.Key |> Option.defaultValue event.Key
+                    Title = data.Title |> Option.defaultValue event.Title
+                    InfoText = data.InfoText |> Option.defaultValue event.InfoText
+                    ReservationStartTime = data.ReservationStartTime |> Option.defaultValue event.ReservationStartTime
+                    Slots = (event.Slots, data.Slots) ||> Array.fold applySlotUpdate
+                    RegistrationConfirmationMail = data.RegistrationConfirmationMail |> Option.defaultValue event.RegistrationConfirmationMail
+                    RequestConfirmationMail =
+                        match data.RequestConfirmationMail with
+                        | None -> event.RequestConfirmationMail
+                        | Some v -> v
+                    EditorIds = [||]
+                }
+            events <- events |> List.map (fun v -> if v.Key = eventKey then update v data else v)
+        }
+        member _.DeleteEvent eventKey = async {
+            events <- events |> List.filter (fun v -> v.Key <> eventKey)
+        }
+        member _.GetEventRegistrations eventKey time = async {
+            return failwith "Not implemented"
+        }
+        member _.GetEventRegistration registrationId = async {
+            return failwith "Not implemented"
+        }
+        member _.CancelEventRegistration registrationId deregistrationTime = async {
+            return failwith "Not implemented"
+        }
+    static member CreateWithSampleData(timeProvider: TimeProvider) =
+        let now = timeProvider.GetLocalNow().DateTime
+        let events : Domain.EventData list = [
+            {
+                Key = $"jobportal-{now.AddYears -1:yy}"
+                Title = $"Jobportal %d{now.Year - 1}"
+                InfoText = "Das Jobportal - die größte Karrieremesse in der Region - ist *die* Chance für Unternehmen, ihre zukünftigen Mitarbeiter kennen zu lernen."
+                ReservationStartTime = now.AddYears -1
+                Slots = [|
+                    {
+                        Time = now.AddYears(-1).AddDays 20
+                        Duration = None
+                        ClosingDate = Some (now.AddYears(-1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                    {
+                        Time = now.AddYears(-1).AddDays 21
+                        Duration = None
+                        ClosingDate = Some (now.AddYears(-1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = {
+                    Subject = $"Anmeldung zum Jobportal %d{now.Year - 1}"
+                    ContentTemplate = "Vielen Dank für Ihre Anmeldung."
+                }
+                RequestConfirmationMail = None
+                EditorIds = [||]
+            }
+
+            {
+                Key = $"jobportal-{now:yy}"
+                Title = $"Jobportal %d{now.Year}"
+                InfoText = "Das Jobportal - die größte Karrieremesse in der Region - ist *die* Chance für Unternehmen, ihre zukünftigen Mitarbeiter kennen zu lernen."
+                ReservationStartTime = now
+                Slots = [|
+                    {
+                        Time = now.AddDays 20
+                        Duration = None
+                        ClosingDate = Some (now.AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                    {
+                        Time = now.AddDays 21
+                        Duration = None
+                        ClosingDate = Some (now.AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = {
+                    Subject = $"Anmeldung zum Jobportal %d{now.Year}"
+                    ContentTemplate = "Vielen Dank für Ihre Anmeldung."
+                }
+                RequestConfirmationMail = None
+                EditorIds = [||]
+            }
+
+            {
+                Key = $"jobportal-{now.AddYears 1:yy}"
+                Title = $"Jobportal %d{now.Year + 1}"
+                InfoText = "Das Jobportal - die größte Karrieremesse in der Region - ist *die* Chance für Unternehmen, ihre zukünftigen Mitarbeiter kennen zu lernen."
+                ReservationStartTime = now.AddYears(1)
+                Slots = [|
+                    {
+                        Time = now.AddYears(1).AddDays 20
+                        Duration = None
+                        ClosingDate = Some (now.AddYears(1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                    {
+                        Time = now.AddYears(1).AddDays 21
+                        Duration = None
+                        ClosingDate = Some (now.AddYears(1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = {
+                    Subject = $"Anmeldung zum Jobportal %d{now.Year + 1}"
+                    ContentTemplate = "Vielen Dank für Ihre Anmeldung."
+                }
+                RequestConfirmationMail = None
+                EditorIds = [||]
+            }
+
+            {
+                Key = $"lets-code-{now.AddMonths 1:yy}"
+                Title = $"Let's Code %d{now.AddMonths(1).Year}"
+                InfoText = "Das Jobportal - die größte Karrieremesse in der Region - ist *die* Chance für Unternehmen, ihre zukünftigen Mitarbeiter kennen zu lernen."
+                ReservationStartTime = now.AddMonths(1)
+                Slots = [|
+                    {
+                        Time = now.AddMonths(1).AddDays 20
+                        Duration = None
+                        ClosingDate = Some (now.AddMonths(1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                    {
+                        Time = now.AddMonths(1).AddDays 21
+                        Duration = None
+                        ClosingDate = Some (now.AddMonths(1).AddDays 10)
+                        MaxQuantityPerBooking = Some 1
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = {
+                    Subject = $"Anmeldung zum Jobportal %d{now.AddMonths(1).Year}"
+                    ContentTemplate = "Vielen Dank für Ihre Anmeldung."
+                }
+                RequestConfirmationMail = None
+                EditorIds = [||]
+            }
+        ]
+        InMemoryEventStore events

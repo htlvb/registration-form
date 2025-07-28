@@ -20,34 +20,32 @@ module MailTemplate =
 
 module Event =
     let fromDomain eventUrl getSlotRegistrationsUrl event : DataTransfer.Event =
-        match event with
-        | Domain.DraftEvent v ->
-            {
-                Type = "draft"
-                Key = v.Key
-                Title = v.Title
-                InfoText = v.InfoText
-                ReservationStartTime = v.ReservationStartTime
-                Slots = v.Slots |> Array.map (fun v -> let slotRegistrationsUrl = getSlotRegistrationsUrl v in Slot.fromDomain slotRegistrationsUrl v)
-                RegistrationConfirmationMail = MailTemplate.fromDomain v.RegistrationConfirmationMail
-                RequestConfirmationMail = Option.map MailTemplate.fromDomain v.RequestConfirmationMail
-                Url = eventUrl
-            }
-        | Domain.ReleasedEvent v ->
-            {
-                Type = "released"
-                Key = v.Key
-                Title = v.Title
-                InfoText = v.InfoText
-                ReservationStartTime = v.ReservationStartTime
-                Slots = v.Slots |> Array.map (fun v -> let slotRegistrationsUrl = getSlotRegistrationsUrl v in Slot.fromDomain slotRegistrationsUrl v)
-                RegistrationConfirmationMail = MailTemplate.fromDomain v.RegistrationConfirmationMail
-                RequestConfirmationMail = Option.map MailTemplate.fromDomain v.RequestConfirmationMail
-                Url = eventUrl
-            }
+        let eventType, data, permissions = 
+            match event with
+            | Domain.DraftEvent v -> "draft", v, {| CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanViewRegistrations = false |}
+            | Domain.ReleasedEvent v -> "released", v, {| CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true |}
+            | Domain.ArchivedEvent v -> "archived", v, {| CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true |}
+        {
+            Type = eventType
+            Key = data.Key
+            Title = data.Title
+            InfoText = data.InfoText
+            ReservationStartTime = data.ReservationStartTime
+            Slots = data.Slots |> Array.map (fun v -> let slotRegistrationsUrl = getSlotRegistrationsUrl v in Slot.fromDomain slotRegistrationsUrl v)
+            RegistrationConfirmationMail = MailTemplate.fromDomain data.RegistrationConfirmationMail
+            RequestConfirmationMail = Option.map MailTemplate.fromDomain data.RequestConfirmationMail
+            Url = eventUrl
+            CanDelete = permissions.CanDelete
+            CanEditEventData = permissions.CanEditEventData
+            CanAddSlot = permissions.CanAddSlot
+            CanEditSlot = permissions.CanEditSlot
+            CanDeleteSlot = permissions.CanDeleteSlot
+            CanViewRegistrations = permissions.CanViewRegistrations
+
+        }
 
 module PatchMailTemplate =
-    let toDomain (v: DataTransfer.PatchMailTemplate) : Domain.MailTemplateUpdateData =
+    let toDomain (v: DataTransfer.PatchMailTemplate) : Domain.MailTemplate =
         {
             ContentTemplate = v.ContentTemplate
             Subject = v.Subject

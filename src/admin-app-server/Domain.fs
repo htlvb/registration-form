@@ -24,58 +24,19 @@ type EventData = {
     RequestConfirmationMail: MailTemplate option
     EditorIds: string[]
 }
-type DraftEventData = {
-    Key: string
-    Title: string
-    InfoText: string
-    ReservationStartTime: DateTime
-    Slots: Slot[]
-    RegistrationConfirmationMail: MailTemplate
-    RequestConfirmationMail: MailTemplate option
-}
-type ReleasedEventData = {
-    Key: string
-    Title: string
-    InfoText: string
-    ReservationStartTime: DateTime
-    Slots: Slot[]
-    RegistrationConfirmationMail: MailTemplate
-    RequestConfirmationMail: MailTemplate option
-}
 type Event =
-    | DraftEvent of DraftEventData
-    | ReleasedEvent of ReleasedEventData
+    | DraftEvent of EventData
+    | ReleasedEvent of EventData
+    | ArchivedEvent of EventData
 module Event =
-    let tryReleased = function
-        | DraftEvent _ -> None
-        | ReleasedEvent event -> Some event
-
     let fromEventData (timeProvider: TimeProvider) (eventData: EventData) =
-        if eventData.ReservationStartTime > timeProvider.GetLocalNow().DateTime then
-            DraftEvent {
-                Key = eventData.Key
-                Title = eventData.Title
-                InfoText = eventData.InfoText
-                ReservationStartTime = eventData.ReservationStartTime
-                Slots = eventData.Slots |> Array.sortBy _.Time
-                RegistrationConfirmationMail = eventData.RegistrationConfirmationMail
-                RequestConfirmationMail = eventData.RequestConfirmationMail
-            }
+        let now = timeProvider.GetLocalNow().DateTime
+        if eventData.ReservationStartTime > now then
+            DraftEvent eventData
+        elif eventData.Slots |> Seq.forall (fun v -> v.Time < now) then
+            ArchivedEvent eventData
         else
-            ReleasedEvent {
-                Key = eventData.Key
-                Title = eventData.Title
-                InfoText = eventData.InfoText
-                ReservationStartTime = eventData.ReservationStartTime
-                Slots = eventData.Slots |> Array.sortBy _.Time
-                RegistrationConfirmationMail = eventData.RegistrationConfirmationMail
-                RequestConfirmationMail = eventData.RequestConfirmationMail
-            }
-
-type MailTemplateUpdateData = {
-    Subject: string
-    ContentTemplate: string
-}
+            ReleasedEvent eventData
 
 type SlotUpdateData = {
     Time: DateTime option
@@ -95,8 +56,8 @@ type EventUpdateData = {
     InfoText: string option
     ReservationStartTime: DateTime option
     Slots: SlotUpdate[]
-    RegistrationConfirmationMail: MailTemplateUpdateData option
-    RequestConfirmationMail: MailTemplateUpdateData option option
+    RegistrationConfirmationMail: MailTemplate option
+    RequestConfirmationMail: MailTemplate option option
 }
 
 type EventRegistration = {

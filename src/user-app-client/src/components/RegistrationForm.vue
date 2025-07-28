@@ -102,7 +102,7 @@ const doRegister = async () => {
           registrationErrorMessages.value.push('Das Event wurde nicht gefunden.')
           break
         case 'event-not-released':
-          registrationErrorMessages.value.push('Die Reservierung ist noch nicht geöffnet.')
+          registrationErrorMessages.value.push('Die Registrierung ist noch nicht geöffnet.')
           break
         case 'slot-not-found':
           registrationErrorMessages.value.push('Der Termin wurde nicht gefunden.')
@@ -197,7 +197,7 @@ const doRegister = async () => {
             <p v-else class="text-yellow-500">
               Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} wurde erfolgreich gespeichert.<br />
               Eine Bestätigungsmail konnte aber aufgrund eines internen Fehlers nicht versendet werden.<br />
-              Sie können sich Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Reservierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
+              Sie können sich Ihre {{ registrationState === 'isRegistered' ? "Registrierung" : "Anfrage" }} unter <a :href="`mailto:office@htlvb.at?subject=${props.event.title} - Registrierungsbestätigung`" class="underline">office@htlvb.at</a> bzw. <a href="tel:+43767224605" class="underline">07672/24605</a> bestätigen lassen.
             </p>
           </template>
           <ul v-else-if="registrationErrorMessages.length > 0" class="text-red-500">

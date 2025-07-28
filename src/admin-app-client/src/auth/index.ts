@@ -68,7 +68,7 @@ async function getAccessToken(scopes: string[]) : Promise<string> {
 
 async function getFetchHeaderWithAccessToken(scopes: string[]) : Promise<{ 'Authorization': string }> {
     const accessToken = await getAccessToken(scopes)
-    return { 'Authorization': `Bearer ${accessToken}` }
+    return { Authorization: `Bearer ${accessToken}` }
 }
 
 async function tryGetLoggedInUser() {
