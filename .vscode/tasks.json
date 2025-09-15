@@ -1,0 +1,51 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run DB",
+            "type": "process",
+            "command": "docker",
+            "args": [
+                "compose",
+                "up",
+            ],
+            "problemMatcher": [],
+        },
+        {
+            "label": "Run server",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "watch",
+                "run",
+                "--environment", "Development",
+                "--urls", "https://localhost:5050",
+            ],
+            "problemMatcher": "$msCompile",
+            "options": {
+                "cwd": "${workspaceFolder}/src/user-app-server",
+            },
+        },
+        {
+            "label": "Restore client packages",
+            "type": "npm",
+            "script": "install",
+            "path": "src/user-app-client",
+            "problemMatcher": [],
+        },
+        {
+            "label": "Run client",
+            "type": "npm",
+            "script": "dev",
+            "path": "src/user-app-client",
+            "problemMatcher": [],
+            "dependsOn": "Restore client packages",
+        },
+        {
+            "label": "Dev",
+            "dependsOn": [ "Run DB", "Run server", "Run client" ]
+        },
+    ]
+}
