@@ -4,7 +4,8 @@ INSERT INTO event (
         info_text,
         reservation_start_time,
         registration_confirmation_mail_subject,
-        registration_confirmation_mail_content_template
+        registration_confirmation_mail_content_template,
+        editor_ids
     )
     VALUES (
         'schulfuehrungen-2025',
@@ -19,7 +20,8 @@ Aufgrund von COVID-19 bitten wir Sie, pünktlich um {{{Time}}} zu Ihrer persönl
 Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir Sie außerdem, uns sobald wie möglich Bescheid zu geben.
 Antworten Sie dafür auf diese E-Mail bzw. kontaktieren Sie uns telefonisch unter 07672/24605.
 
-Wir freuen uns, Sie bei uns begrüßen zu dürfen.'
+Wir freuen uns, Sie bei uns begrüßen zu dürfen.',
+        '[]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, 15, FALSE),
@@ -37,7 +39,8 @@ INSERT INTO event (
         registration_confirmation_mail_subject,
         registration_confirmation_mail_content_template,
         request_confirmation_mail_subject,
-        request_confirmation_mail_content_template
+        request_confirmation_mail_content_template,
+        editor_ids
     )
     VALUES (
         'lets-code-2425',
@@ -65,7 +68,8 @@ vielen Dank für dein Interesse am Programmierworkshop "Let''s code" der HTL Vö
 Zu dem Zeitpunkt sind leider keine Plätze mehr frei.
 Wir melden uns aber bei dir, um gemeinsam eine Lösung zu finden.
 
-Wir freuen uns auf dich.'
+Wir freuen uns auf dich.',
+        '[]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('lets-code-2425', '2024-12-17 14:00:00', '2 hours 30 minutes', 1, 20, TRUE),
