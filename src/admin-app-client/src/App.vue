@@ -4,16 +4,16 @@ import LoginInformation from './components/LoginInformation.vue'
 import LoadingBar from './components/LoadingBar.vue'
 import ErrorWithRetry from './components/ErrorWithRetry.vue'
 import { uiFetchAuthorized } from './UIFetch'
-import type { Dto } from './DataTransfer'
+import * as DataTransfer from './DataTransfer'
 import EventList from './EventList.vue'
 
 const isLoadingEvents = ref(false)
 const hasLoadingEventsFailed = ref(false)
-const events = ref<Dto.Event[]>()
+const events = ref<DataTransfer.Event[]>()
 const loadEvents = async () => {
   const result = await uiFetchAuthorized(isLoadingEvents, hasLoadingEventsFailed, "/api/events")
   if (result.succeeded) {
-    events.value = await result.response.json() as Dto.Event[]
+    events.value = await result.response.json() as DataTransfer.Event[]
   }
 }
 loadEvents()
