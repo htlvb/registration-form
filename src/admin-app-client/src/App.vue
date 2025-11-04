@@ -20,12 +20,12 @@ loadEvents()
 </script>
 
 <template>
-  <header class="bg-blue-htlvb">
+  <header class="bg-blue-htlvb text-slate-300">
     <div class="container mx-auto flex flex-col sm:flex-row gap-2 sm:gap-6 my-4 px-4">
       <div>
         <img src="@/assets/logo.svg" class="h-[80px]" />
       </div>
-      <div class="grow flex flex-col gap-2 text-slate-300">
+      <div class="grow flex flex-col gap-2">
         <span class="text-2xl small-caps">Eventregistrierung</span>
         <span class="text-4xl small-caps">Administration</span>
       </div>
@@ -38,15 +38,15 @@ loadEvents()
       <LoadingBar v-if="isLoadingEvents"></LoadingBar>
       <ErrorWithRetry v-else-if="hasLoadingEventsFailed" @retry="loadEvents">Fehler beim Laden der Events.</ErrorWithRetry>
       <template v-else-if="events !== undefined">
-        <section class="border rounded px-4 py-2">
+        <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Entwürfe</h2>
           <EventList :events="events.filter(v => v.type === 'draft')" />
         </section>
-        <section class="border rounded px-4 py-2">
+        <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Aktive Events</h2>
           <EventList :events="events.filter(v => v.type === 'released')" />
         </section>
-        <section class="border rounded px-4 py-2">
+        <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Archiv</h2>
           <EventList :events="events.filter(v => v.type === 'archived')" />
         </section>

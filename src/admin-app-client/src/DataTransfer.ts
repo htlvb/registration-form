@@ -7,7 +7,7 @@ type Slot = {
   registrationsUrl: string
 }
 
-type MailTemplate = {
+export type MailTemplate = {
   subject: string
   contentTemplate: string
 }
