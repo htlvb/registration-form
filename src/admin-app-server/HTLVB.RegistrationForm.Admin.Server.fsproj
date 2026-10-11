@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <NoDefaultLaunchSettingsFile>True</NoDefaultLaunchSettingsFile>
-    <UserSecretsId>20dd9ec5-2b18-4104-a776-6ff76df87160</UserSecretsId>
+    <UserSecretsId>HTLVB.RegistrationForm</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
