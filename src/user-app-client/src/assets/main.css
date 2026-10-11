@@ -1,11 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-@layer utilities {
-  .small-caps {
-    font-variant: small-caps;
-  }
+@theme {
+  --color-blue-htlvb: #183f7c;
+}
+
+@utility small-caps {
+  font-variant: small-caps;
 }
 
 html, body {
@@ -13,16 +13,16 @@ html, body {
 }
 
 .button {
-  @apply inline-block cursor-pointer font-semibold py-2 px-4 border rounded;
+  @apply inline-block cursor-pointer font-semibold py-2 px-4 border rounded-sm;
 }
 .button:disabled {
   @apply cursor-not-allowed opacity-50;
 }
 .button:hover:not(:disabled) {
-  @apply shadow;
+  @apply shadow-sm;
 }
 .button-htlvb {
-  @apply text-blue-htlvb border-blue-htlvb;
+  @apply text-blue-htlvb;
 }
 .button-htlvb-selected {
   @apply bg-blue-htlvb text-white;
@@ -35,11 +35,11 @@ html, body {
   @apply text-sm font-medium;
 }
 .input-text {
-  @apply w-full sm:w-96 px-2 py-1 border border-slate-300 rounded-md text-stone-800 text-sm shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
+  @apply w-full sm:w-96 px-2 py-1 border rounded-md text-stone-800 dark:text-slate-300 text-sm shadow-xs focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500;
 }
 .input-text:disabled {
   @apply bg-stone-200 dark:bg-stone-400;
 }
 .input-text:invalid {
-  @apply border-red-500 text-red-500 focus:ring-red-500;
+  @apply text-red-500 focus:ring-red-500;
 }

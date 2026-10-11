@@ -20,12 +20,14 @@
             "args": [
                 "watch",
                 "run",
-                "--environment", "Development",
                 "--urls", "https://localhost:5050",
             ],
             "problemMatcher": "$msCompile",
             "options": {
                 "cwd": "${workspaceFolder}/src/user-app-server",
+                "env": {
+                    "ASPNETCORE_ENVIRONMENT": "Development",
+                },
             },
         },
         {
@@ -50,12 +52,14 @@
             "args": [
                 "watch",
                 "run",
-                "--environment", "Development",
                 "--urls", "https://localhost:5051",
             ],
             "problemMatcher": "$msCompile",
             "options": {
                 "cwd": "${workspaceFolder}/src/admin-app-server",
+                "env": {
+                    "ASPNETCORE_ENVIRONMENT": "Development",
+                },
             },
         },
         {

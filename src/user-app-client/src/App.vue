@@ -32,7 +32,7 @@ const reservationStartTime = computed(() => {
 
 <template>
   <header class="bg-blue-htlvb">
-    <div class="max-w-screen-lg mx-auto flex flex-col sm:flex-row gap-2 sm:gap-6 my-4 px-4">
+    <div class="max-w-(--breakpoint-lg) mx-auto flex flex-col sm:flex-row gap-2 sm:gap-6 my-4 px-4">
       <div>
         <img src="@/assets/logo.svg" class="h-[80px]" />
       </div>
@@ -43,7 +43,7 @@ const reservationStartTime = computed(() => {
     </div>
   </header>
   <main class="grow sm:overflow-y-scroll px-4">
-    <div class="max-w-screen-lg mx-auto">
+    <div class="max-w-(--breakpoint-lg) mx-auto">
       <LoadingBar v-if="isLoadingEvent" class="m-4" />
       <ErrorWithRetry v-else-if="hasLoadingEventFailed" @retry="loadEvent" class="m-4">Fehler beim Laden des Formulars.</ErrorWithRetry>
       <ErrorWithRetry v-else-if="event?.type === 'hidden'" @retry="loadEvent" class="m-4">Die Registrierung ist ab {{ reservationStartTime }} Uhr möglich.</ErrorWithRetry>

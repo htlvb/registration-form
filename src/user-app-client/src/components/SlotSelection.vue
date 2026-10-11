@@ -104,7 +104,7 @@ const formatClosingDate = (v: Date) => {
       <button v-for="slotSummary in slotSummaries" :key="slotSummary.date"
         type="button"
         :disabled="slotSummary.freeSlots === 0 && !slotSummary.hasUnlimitedCapacity && !slotSummary.canRequestSlot"
-        class="!flex flex-col items-center justify-center button"
+        class="flex! flex-col items-center justify-center button"
         :class="{ 'button-htlvb-selected': selectedDate === slotSummary.date }"
         v-on="{ click: slotSummary.freeSlots > 0 || slotSummary.hasUnlimitedCapacity || slotSummary.canRequestSlot ? (() => selectedDate = slotSummary.date) : null }">
         <span>
@@ -124,7 +124,7 @@ const formatClosingDate = (v: Date) => {
       <button v-for="slot in selectedDateSlots" :key="slot.startTime"
         type="button"
         :disabled="slot.type.type === 'taken' || slot.type.type === 'closed'"
-        class="!flex flex-col items-center justify-center button"
+        class="flex! flex-col items-center justify-center button"
         :class="{ 'button-htlvb-selected': selectedSlot === slot }"
         v-on="{ click: slot.type.type === 'free' || slot.type.type === 'takenWithRequestPossible' ? (() => selectedSlot = slot) : null }">
         <span>{{ formatSlotTime(slot) }}</span>

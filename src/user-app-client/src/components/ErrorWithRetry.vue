@@ -13,11 +13,11 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="type === 'banner'" class="flex justify-center items-center gap-2 p-4 rounded">
+  <div v-if="type === 'banner'" class="flex justify-center items-center gap-2 p-4 rounded-sm">
     <div class="font-semibold"><slot /></div>
     <button class="button button-htlvb bg-white" @click="$emit('retry')">{{ retryTitle ?? 'Erneut versuchen' }}</button>
   </div>
-  <div v-if="type === 'inline'" class="flex justify-center items-center gap-2 rounded">
+  <div v-if="type === 'inline'" class="flex justify-center items-center gap-2 rounded-sm">
     <div class="font-semibold"><slot /></div>
     <button class="button button-htlvb bg-white" @click="$emit('retry')">{{ retryTitle ?? 'Erneut versuchen' }}</button>
   </div>

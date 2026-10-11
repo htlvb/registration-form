@@ -94,7 +94,7 @@ const doRegister = async () => {
     isConfirmationMailSent.value = !bookingResult.mailSendError
   }
   else if (result.response !== undefined) {
-    let errors = await result.response.json() as BookingError[]
+    const errors = await result.response.json() as BookingError[]
     for (const error of errors) {
       switch (error.error)
       {
@@ -210,6 +210,8 @@ const doRegister = async () => {
 </template>
 
 <style lang="css" scoped>
+@reference "tailwindcss";
+
 .info-text :deep(p) {
   @apply mt-2
 }
