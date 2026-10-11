@@ -26,6 +26,6 @@ export const uiFetch = async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<bool
 }
 
 export const uiFetchAuthorized = async (isLoadingRef: Ref<boolean>, hasFailedRef: Ref<boolean>, fetchUrl: string, fetchParams?: RequestInit) : Promise<FetchResult> => {
-  const authHeader = await getFetchHeaderWithAccessToken([])
+  const authHeader = await getFetchHeaderWithAccessToken()
   return await uiFetch(isLoadingRef, hasFailedRef, fetchUrl, { ...fetchParams, headers: { ...fetchParams?.headers, ...authHeader } })
 }

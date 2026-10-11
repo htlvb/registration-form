@@ -1,12 +1,11 @@
 module HTLVB.RegistrationForm.Admin.Server.Main
 
+open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authorization
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
-open Microsoft.Identity.Web
 open Npgsql
 open System
 
@@ -29,16 +28,21 @@ let main args =
     builder.Services.AddSingleton(NpgsqlDataSourceBuilder(pgsqlConnectionString).EnableDynamicJson().Build()) |> ignore
     builder.Services.AddSingleton<IEventStore, PgsqlEventStore>() |> ignore
 
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd")) |> ignore
+    builder.Services.AddAuthentication()
+        .AddJwtBearer(fun options ->
+            builder.Configuration.GetSection("Oidc").Bind options
+        ) |> ignore
+
+    builder.Services.AddTransient<IClaimsTransformation>(fun _ ->
+        new KeycloakRolesClaimsTransformation "registration-form"
+    ) |> ignore
 
     builder.Services.AddAuthorization(fun options ->
         options.AddPolicy("ReadEvent", fun policy ->
-            policy.RequireRole("Event.Read") |> ignore
+            policy.RequireRole("registrationform-eventreader") |> ignore
         )
         let isEventEditor (ctx: AuthorizationHandlerContext) =
-            ctx.User.IsInRole("Event.Write.All") ||
+            ctx.User.IsInRole("registrationform-eventadmin") ||
             ctx.Resource :?> Domain.EventData
             |> Option.ofObj
             |> Option.exists (fun v ->
@@ -55,8 +59,8 @@ let main args =
         )
         options.AddPolicy("CreateEvent", fun policy ->
             policy.RequireAssertion(fun ctx ->
-                ctx.User.IsInRole("Event.Write") ||
-                ctx.User.IsInRole("Event.Write.All")
+                ctx.User.IsInRole("registrationform-eventwriter") ||
+                ctx.User.IsInRole("registrationform-eventadmin")
             ) |> ignore
         )
         options.AddPolicy("UpdateEvent", fun policy ->

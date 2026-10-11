@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="KeycloakRolesClaimsTransformation.fs" />
     <Compile Include="Domain.fs" />
     <Compile Include="DataTransfer.fs" />
     <Compile Include="DtoMapping.fs" />
@@ -18,7 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.89" />
-    <PackageReference Include="Microsoft.Identity.Web" Version="4.16.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 

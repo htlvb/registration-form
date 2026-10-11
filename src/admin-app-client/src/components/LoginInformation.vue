@@ -6,7 +6,7 @@ const username = ref<string>()
 const setLoggedInUser = async () => {
   let user = await tryGetLoggedInUser()
   if (user === undefined) {
-    await login([])
+    await login()
     user = await tryGetLoggedInUser()
   }
   if (user === undefined) {
