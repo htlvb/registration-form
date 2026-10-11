@@ -82,7 +82,7 @@ INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, rem
     ('lets-code-2425', '2025-01-11 08:00:00', '2 hours 15 minutes', 1, 20, TRUE);
 
 ------------------------
--- Let's code 2025/26 --
+-- Let's code 2026/27 --
 ------------------------
 INSERT INTO event (
         key,
@@ -96,8 +96,8 @@ INSERT INTO event (
         editor_ids
     )
     VALUES (
-        'lets-code-2526',
-        'Let''s code 2025/26',
+        'lets-code-2627',
+        'Let''s code 2026/27',
         'Tauche ein in die faszinierende Welt der Bits und Bytes!
 
 In unserem Workshop lernst du die Grundlagen des Programmierens und entdeckst, wie Computer denken und arbeiten.
@@ -105,7 +105,7 @@ In unserem Workshop lernst du die Grundlagen des Programmierens und entdeckst, w
 Egal, ob du neugierig auf die Technologie hinter Apps, Websites oder Spielen bist – hier erfährst du, wie die digitale Welt funktioniert.
 
 Komm vorbei und sieh selber, wie viel Spaß es macht, eigene Computerprogramme zu entwickeln!',
-        '2025-09-29 00:00:00',
+        '2026-09-29 00:00:00',
         'Anmeldung zum Programmierworkshop "Let''s code"',
         '{{{FullName}}},
 
@@ -125,11 +125,11 @@ Wir freuen uns auf dich.',
         '[]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
-    ('lets-code-2526', '2025-12-17 14:00:00', '2 hours 30 minutes', 1, 20, TRUE),
-    ('lets-code-2526', '2026-01-11 08:00:00', '2 hours 15 minutes', 1, 20, TRUE);
+    ('lets-code-2627', '2026-12-17 14:00:00', '2 hours 30 minutes', 1, 20, TRUE),
+    ('lets-code-2627', '2027-01-11 08:00:00', '2 hours 15 minutes', 1, 20, TRUE);
 
 -------------------------
--- Schulführungen 2026 --
+-- Schulführungen 2027 --
 -------------------------
 INSERT INTO event (
         key,
@@ -141,10 +141,10 @@ INSERT INTO event (
         editor_ids
     )
     VALUES (
-        'schulfuehrungen-2026',
-        'Schulführungen 2026',
+        'schulfuehrungen-2027',
+        'Schulführungen 2027',
         '**Besondere Umstände erfordern besondere Maßnahmen**. Bitte reservieren Sie für den diesjährigen Tag der offenen Tür einen freien Termin.',
-        '2026-01-01 00:00:00',
+        '2026-10-01 00:00:00',
         'Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck',
         '{{{FullName}}},
 
@@ -157,9 +157,9 @@ Wir freuen uns, Sie bei uns begrüßen zu dürfen.',
         '[]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
-    ('schulfuehrungen-2026', '2026-01-28 14:00:00', NULL, 15, FALSE),
-    ('schulfuehrungen-2026', '2026-01-28 15:00:00', 10, 15, FALSE),
-    ('schulfuehrungen-2026', '2026-01-28 16:00:00', NULL, NULL, FALSE),
-    ('schulfuehrungen-2026', '2026-02-03 14:00:00', 25, 15, FALSE),
-    ('schulfuehrungen-2026', '2026-02-03 15:00:00', 15, 15, FALSE),
-    ('schulfuehrungen-2026', '2026-02-03 16:00:00', 15, 15, FALSE);
+    ('schulfuehrungen-2027', '2027-01-28 14:00:00', NULL, 15, FALSE),
+    ('schulfuehrungen-2027', '2027-01-28 15:00:00', 10, 15, FALSE),
+    ('schulfuehrungen-2027', '2027-01-28 16:00:00', NULL, NULL, FALSE),
+    ('schulfuehrungen-2027', '2027-02-03 14:00:00', 25, 15, FALSE),
+    ('schulfuehrungen-2027', '2027-02-03 15:00:00', 15, 15, FALSE),
+    ('schulfuehrungen-2027', '2027-02-03 16:00:00', 15, 15, FALSE);
