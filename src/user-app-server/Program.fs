@@ -1,10 +1,10 @@
 module HTLVB.RegistrationForm.Server.Main
 
+open Azure.Identity
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Graph
-open Microsoft.Identity.Web
 open Npgsql
 open System
 
@@ -38,11 +38,14 @@ let main args =
     }) |> ignore
     builder.Services.AddScoped<IBookingConfirmationSender, MSGraphBookingConfirmationSender>() |> ignore
 
-    builder.Services
-        .AddMicrosoftIdentityWebApiAuthentication(builder.Configuration)
-        .EnableTokenAcquisitionToCallDownstreamApi()
-        .AddInMemoryTokenCaches()
-        .AddMicrosoftGraphAppOnly(fun v -> new GraphServiceClient(v)) |> ignore
+    let azureAdConfig = builder.Configuration.GetRequiredSection("AzureAd")
+    let credential =
+        ClientSecretCredential(
+            azureAdConfig.GetRequiredSection("TenantId").Value,
+            azureAdConfig.GetRequiredSection("ClientId").Value,
+            azureAdConfig.GetRequiredSection("ClientSecret").Value
+        )
+    builder.Services.AddSingleton(new GraphServiceClient(credential)) |> ignore
 
     builder.Services.AddControllers() |> ignore
 
