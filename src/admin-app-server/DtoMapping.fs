@@ -20,11 +20,12 @@ module MailTemplate =
 
 module Event =
     let fromDomain eventUrl getSlotRegistrationsUrl event : DataTransfer.Event =
-        let eventType, data, permissions = 
+        let eventType, data =
             match event with
-            | Domain.DraftEvent v -> "draft", v, {| CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanViewRegistrations = false |}
-            | Domain.ReleasedEvent v -> "released", v, {| CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true |}
-            | Domain.ArchivedEvent v -> "archived", v, {| CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true |}
+            | Domain.DraftEvent v -> "draft", v
+            | Domain.ReleasedEvent v -> "released", v
+            | Domain.ArchivedEvent v -> "archived", v
+        let permissions = Domain.EventPermissions.fromEvent event
         {
             Type = eventType
             Key = data.Key

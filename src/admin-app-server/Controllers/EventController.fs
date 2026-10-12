@@ -55,8 +55,12 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         | EventAuthorizationFailed _ -> return this.Unauthorized()
         | EventAuthorizationSucceeded event ->
             let update = DtoMapping.PatchEventData.toDomain data
-            do! eventStore.UpdateEvent event.Key update
-            return this.Ok()
+            let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
+            if not (Domain.EventPermissions.allowsUpdate update permissions) then
+                return this.BadRequest()
+            else
+                do! eventStore.UpdateEvent event.Key update
+                return this.Ok()
     }
 
     [<HttpGet("{eventKey}/{slot}/registrations")>]

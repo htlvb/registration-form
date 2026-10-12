@@ -260,6 +260,90 @@ let tests =
             Expect.equal actual expected "Event slots should have been updated"
         }
 
+        testCaseTask "Can update mail templates" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            do! eventStore.CreateEvent {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [||]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
+            }
+            do! eventStore.UpdateEvent "lets-code-2425" {
+                Key = None
+                Title = None
+                InfoText = None
+                ReservationStartTime = None
+                Slots = [||]
+                RegistrationConfirmationMail = Some { Subject = "Neue Anmeldung"; ContentTemplate = "Vielen Dank für deine Anmeldung" }
+                RequestConfirmationMail = Some (Some { Subject = "Anfrage"; ContentTemplate = "Danke für deine Anfrage" })
+            }
+            let! actual = eventStore.GetEvents()
+            let expected : Domain.EventData list = [
+                {
+                    Key = "lets-code-2425"
+                    Title = "Let's code 2024/25"
+                    InfoText = ""
+                    ReservationStartTime = DateTime.Today
+                    Slots = [||]
+                    RegistrationConfirmationMail = { Subject = "Neue Anmeldung"; ContentTemplate = "Vielen Dank für deine Anmeldung" }
+                    RequestConfirmationMail = Some { Subject = "Anfrage"; ContentTemplate = "Danke für deine Anfrage" }
+                    EditorIds = [| "EINA@htlvb.at" |]
+                }
+            ]
+            Expect.equal actual expected "Mail templates should have been updated"
+        }
+
+        testCaseTask "Can replace deleted slot with new slot at the same time" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            let slotTime = DateTime.Today.AddDays(1).AddHours(8)
+            do! eventStore.CreateEvent {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [|
+                    {
+                        Time = slotTime
+                        Duration = None
+                        ClosingDate = None
+                        MaxQuantityPerBooking = Some 10
+                        RemainingCapacity = Some 100
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
+            }
+            let newSlot : Domain.Slot = {
+                Time = slotTime
+                Duration = Some (TimeSpan.FromHours 1)
+                ClosingDate = None
+                MaxQuantityPerBooking = None
+                RemainingCapacity = Some 20
+                CanRequestIfFullyBooked = true
+            }
+            do! eventStore.UpdateEvent "lets-code-2425" {
+                Key = None
+                Title = None
+                InfoText = None
+                ReservationStartTime = None
+                Slots = [| Domain.CreateSlot newSlot; Domain.DeleteSlot slotTime |]
+                RegistrationConfirmationMail = None
+                RequestConfirmationMail = None
+            }
+            let! actual = eventStore.GetEvents()
+            Expect.equal (actual |> List.map _.Slots) [ [| newSlot |] ] "Slot should have been replaced"
+        }
+
         testCaseTask "Can't update event slot time when there are registrations" <| fun () -> task {
             use! db = startDb
             use dataSource = getDataSource db

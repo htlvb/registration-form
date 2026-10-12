@@ -186,9 +186,16 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                     ("request_confirmation_mail_subject", v.Subject)
                     ("request_confirmation_mail_content_template", v.ContentTemplate)
                 | None -> ()
+                ("editor_ids", JsonSerializer.Serialize event.EditorIds)
             ]
             let fieldNames = fields |> List.map fst |> String.concat ", "
-            let paramNames = fields |> List.map (fst >> sprintf "@%s") |> String.concat ", "
+            let paramNames =
+                fields
+                |> List.map (function
+                    | ("editor_ids", _) -> "@editor_ids::jsonb"
+                    | (name, _) -> $"@%s{name}"
+                )
+                |> String.concat ", "
             let parameters =
                 let p = DynamicParameters()
                 fields |> List.iter (fun (name, value) -> p.Add(name, value))
@@ -245,17 +252,17 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
                 match data.RegistrationConfirmationMail with
                 | Some v ->
-                    ("registration_confirmation_mail_subject", v)
-                    ("registration_confirmation_mail_content_template", v)
+                    ("registration_confirmation_mail_subject", v.Subject)
+                    ("registration_confirmation_mail_content_template", v.ContentTemplate)
                 | None -> ()
 
                 match data.RequestConfirmationMail with
                 | Some (Some v) ->
-                    ("registration_confirmation_mail_subject", v.Subject)
-                    ("registration_confirmation_mail_content_template", v.ContentTemplate)
+                    ("request_confirmation_mail_subject", v.Subject)
+                    ("request_confirmation_mail_content_template", v.ContentTemplate)
                 | Some None ->
-                    ("registration_confirmation_mail_subject", null)
-                    ("registration_confirmation_mail_content_template", null)
+                    ("request_confirmation_mail_subject", null)
+                    ("request_confirmation_mail_content_template", null)
                 | None -> ()
             ]
             if not (List.isEmpty updateData) then
@@ -269,9 +276,11 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                     p
                 do! connection.ExecuteAsync($"UPDATE event SET %s{updateFields} WHERE key = @old_key", parameters, tx) |> Async.AwaitTask |> Async.Ignore
 
-            do! insertSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.CreateSlot slot -> Some slot | _ -> None))
-            do! updateSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.UpdateSlot (time, data) -> Some (time, data) | _ -> None))
+            let eventKey = data.Key |> Option.defaultValue eventKey
+            // delete first, so that updated and new slots can take the time of a deleted slot
             do! deleteSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.DeleteSlot time -> Some time | _ -> None))
+            do! updateSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.UpdateSlot (time, data) -> Some (time, data) | _ -> None))
+            do! insertSlots connection tx eventKey (data.Slots |> Array.choose (function | Domain.CreateSlot slot -> Some slot | _ -> None))
 
             do! tx.CommitAsync() |> Async.AwaitTask
         }

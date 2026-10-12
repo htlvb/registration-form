@@ -40,15 +40,15 @@ loadEvents()
       <template v-else-if="events !== undefined">
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Entwürfe</h2>
-          <EventList :events="events.filter(v => v.type === 'draft')" />
+          <EventList :events="events.filter(v => v.type === 'draft')" @event-updated="loadEvents" />
         </section>
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Aktive Events</h2>
-          <EventList :events="events.filter(v => v.type === 'released')" />
+          <EventList :events="events.filter(v => v.type === 'released')" @event-updated="loadEvents" />
         </section>
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Archiv</h2>
-          <EventList :events="events.filter(v => v.type === 'archived')" />
+          <EventList :events="events.filter(v => v.type === 'archived')" @event-updated="loadEvents" />
         </section>
       </template>
     </section>

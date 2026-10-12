@@ -36,7 +36,7 @@ type Event = {
 }
 
 [<AbstractClass>]
-[<JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")>]
+[<JsonPolymorphic(TypeDiscriminatorPropertyName = "type")>]
 [<JsonDerivedType(typeof<PatchEventDataCreateSlot>, typeDiscriminator = "create")>]
 [<JsonDerivedType(typeof<PatchEventDataUpdateSlot>, typeDiscriminator = "update")>]
 [<JsonDerivedType(typeof<PatchEventDataDeleteSlot>, typeDiscriminator = "delete")>]

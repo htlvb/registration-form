@@ -60,6 +60,35 @@ type EventUpdateData = {
     RequestConfirmationMail: MailTemplate option option
 }
 
+type EventPermissions = {
+    CanDelete: bool
+    CanEditEventData: bool
+    CanAddSlot: bool
+    CanEditSlot: bool
+    CanDeleteSlot: bool
+    CanViewRegistrations: bool
+}
+module EventPermissions =
+    let fromEvent = function
+        | DraftEvent _ -> { CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanViewRegistrations = false }
+        | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true }
+        | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true }
+
+    let allowsUpdate (update: EventUpdateData) permissions =
+        let changesEventData =
+            update.Key.IsSome ||
+            update.Title.IsSome ||
+            update.InfoText.IsSome ||
+            update.ReservationStartTime.IsSome ||
+            update.RegistrationConfirmationMail.IsSome ||
+            update.RequestConfirmationMail.IsSome
+        let allowsSlotUpdate = function
+            | CreateSlot _ -> permissions.CanAddSlot
+            | UpdateSlot _ -> permissions.CanEditSlot
+            | DeleteSlot _ -> permissions.CanDeleteSlot
+        (not changesEventData || permissions.CanEditEventData) &&
+        update.Slots |> Array.forall allowsSlotUpdate
+
 type EventRegistration = {
     Id: string
     EventKey: string
