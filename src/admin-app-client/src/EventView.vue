@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import * as DataTransfer from './DataTransfer'
 import * as DateTime from './DateTime'
 import { uiFetchAuthorized } from './UIFetch'
+import ShareLink from './components/ShareLink.vue'
 
 const props = defineProps<{
   event: DataTransfer.Event
@@ -245,6 +246,7 @@ const deleteEvent = () => {
         <a v-if="event.canDelete" class="p-2 cursor-pointer" :class="{ 'text-rose-400': isMarkedForDeletion }" :title="isMarkedForDeletion ? 'Wirklich löschen' : 'Löschen'" @click="deleteEvent">
           <i class="fa-solid fa-trash-can"></i>
         </a>
+        <ShareLink :url="event.publicRegistrationUrl" :title="event.title" />
         <a class="p-2 cursor-pointer" title="Duplizieren" @click="$emit('duplicateEvent')">
           <i class="fa-solid fa-clone"></i>
         </a>

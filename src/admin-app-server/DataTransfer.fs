@@ -27,6 +27,7 @@ type Event = {
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
     Url: string
+    PublicRegistrationUrl: string
     CanDelete: bool
     CanEditEventData: bool
     CanAddSlot: bool

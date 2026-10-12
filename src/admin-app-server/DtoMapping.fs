@@ -19,7 +19,7 @@ module MailTemplate =
     }
 
 module Event =
-    let fromDomain eventUrl getSlotRegistrationsUrl event : DataTransfer.Event =
+    let fromDomain eventUrl publicRegistrationUrl getSlotRegistrationsUrl event : DataTransfer.Event =
         let eventType, data =
             match event with
             | Domain.DraftEvent v -> "draft", v
@@ -36,6 +36,7 @@ module Event =
             RegistrationConfirmationMail = MailTemplate.fromDomain data.RegistrationConfirmationMail
             RequestConfirmationMail = Option.map MailTemplate.fromDomain data.RequestConfirmationMail
             Url = eventUrl
+            PublicRegistrationUrl = publicRegistrationUrl
             CanDelete = permissions.CanDelete
             CanEditEventData = permissions.CanEditEventData
             CanAddSlot = permissions.CanAddSlot

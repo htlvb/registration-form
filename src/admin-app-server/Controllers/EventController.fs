@@ -7,6 +7,10 @@ open Microsoft.Extensions.Logging
 open System
 open System.Globalization
 
+type PublicRegistrationSettings = {
+    BaseUrl: Uri
+}
+
 type private CheckEventAuthorizationResult =
     | EventNotFound
     | EventAuthorizationFailed of AuthorizationFailure
@@ -15,7 +19,7 @@ type private CheckEventAuthorizationResult =
 [<ApiController>]
 [<Route("/api/events")>]
 [<Authorize>]
-type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authService: IAuthorizationService, logger : ILogger<EventController>) as this =
+type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authService: IAuthorizationService, publicRegistrationSettings: PublicRegistrationSettings, logger : ILogger<EventController>) as this =
     inherit ControllerBase()
 
     let checkEventAuthorization eventKey (policyName: string) = async {
@@ -29,6 +33,9 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
 
     let getEventUrl (eventKey: string) =
         this.Url.Action(nameof(this.PatchEvent),  {| eventKey = eventKey |})
+
+    let getPublicRegistrationUrl (eventKey: string) =
+        Uri(publicRegistrationSettings.BaseUrl, Uri.EscapeDataString eventKey).ToString()
 
     let getSlotRegistrationsUrl (eventKey: string) (slot: Domain.Slot) =
         let slotQueryParam = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture)
@@ -44,7 +51,7 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         return events
         |> List.map (fun eventData ->
             let event = Domain.Event.fromEventData timeProvider eventData
-            DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getSlotRegistrationsUrl eventData.Key) event
+            DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) (getSlotRegistrationsUrl eventData.Key) event
         )
     }
 

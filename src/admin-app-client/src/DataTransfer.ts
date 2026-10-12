@@ -21,6 +21,7 @@ export type Event = {
   registrationConfirmationMail: MailTemplate
   requestConfirmationMail: MailTemplate | null
   url: string
+  publicRegistrationUrl: string
   canDelete: boolean
   canEditEventData: boolean
   canAddSlot: boolean

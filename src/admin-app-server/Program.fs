@@ -28,6 +28,13 @@ let main args =
     builder.Services.AddSingleton(NpgsqlDataSourceBuilder(pgsqlConnectionString).EnableDynamicJson().Build()) |> ignore
     builder.Services.AddSingleton<IEventStore, PgsqlEventStore>() |> ignore
 
+    let publicRegistrationBaseUrl = builder.Configuration.GetRequiredSection("PublicRegistration:BaseUrl").Value
+    let publicRegistrationSettings : Controllers.PublicRegistrationSettings = {
+        // trailing slash, so that relative event keys are appended instead of replacing the last segment
+        BaseUrl = Uri(publicRegistrationBaseUrl.TrimEnd('/') + "/")
+    }
+    builder.Services.AddSingleton(publicRegistrationSettings) |> ignore
+
     builder.Services.AddAuthentication()
         .AddJwtBearer(fun options ->
             builder.Configuration.GetSection("Oidc").Bind options
