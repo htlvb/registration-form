@@ -2,13 +2,47 @@ namespace HTLVB.RegistrationForm.Admin.Server.DtoMapping
 
 open HTLVB.RegistrationForm.Admin.Server
 
+module RegistrationField =
+    let fromDomain (v: Domain.RegistrationField) : DataTransfer.RegistrationField = {
+        Key = v.Key
+        Label = v.Label
+        Type =
+            match v.Type with
+            | Domain.TextField -> "text"
+            | Domain.MailField -> "mail"
+            | Domain.PhoneField -> "phone"
+        Validator =
+            match v.Validator with
+            | Domain.NoValidation -> "none"
+            | Domain.NotEmpty -> "notEmpty"
+    }
+
+    let tryToDomain (v: DataTransfer.RegistrationField) : Domain.RegistrationField option =
+        let fieldType =
+            match v.Type with
+            | "text" -> Some Domain.TextField
+            | "mail" -> Some Domain.MailField
+            | "phone" -> Some Domain.PhoneField
+            | _ -> None
+        let validator =
+            match v.Validator with
+            | "none" -> Some Domain.NoValidation
+            | "notEmpty" -> Some Domain.NotEmpty
+            | _ -> None
+        match fieldType, validator with
+        | Some fieldType, Some validator -> Some { Key = v.Key; Label = v.Label; Type = fieldType; Validator = validator }
+        | _ -> None
+
+    /// `None` if a field can't be parsed
+    let tryToDomainList (fields: DataTransfer.RegistrationField[]) =
+        let parsedFields = fields |> Array.choose tryToDomain
+        if parsedFields.Length = fields.Length then Some parsedFields else None
+
 module EventRegistrations =
     let fromDomain registrationUrl (registration: Domain.EventRegistration) : DataTransfer.EventRegistration =
         {
             Quantity = registration.Quantity
-            Name = registration.Name
-            MailAddress = registration.MailAddress
-            PhoneNumber = registration.PhoneNumber
+            Data = registration.Data
             Timestamp = registration.Timestamp
             IsRequest = registration.IsRequest
             DeregistrationTime = registration.DeregistrationTime
@@ -60,6 +94,7 @@ module Event =
             Slots = data.Slots |> Array.map getSlot
             RegistrationConfirmationMail = MailTemplate.fromDomain data.RegistrationConfirmationMail
             RequestConfirmationMail = Option.map MailTemplate.fromDomain data.RequestConfirmationMail
+            RegistrationFields = data.RegistrationFields |> Array.map RegistrationField.fromDomain
             Url = eventUrl
             PublicRegistrationUrl = publicRegistrationUrl
             CanDelete = permissions.CanDelete
@@ -67,6 +102,7 @@ module Event =
             CanAddSlot = permissions.CanAddSlot
             CanEditSlot = permissions.CanEditSlot
             CanDeleteSlot = permissions.CanDeleteSlot
+            CanEditRegistrationFields = permissions.CanEditRegistrationFields
             CanViewRegistrations = canViewRegistrations
 
         }
@@ -82,16 +118,19 @@ module CreateEventDataSlot =
     }
 
 module CreateEventData =
-    let toDomain editorIds (v: DataTransfer.CreateEventData) : Domain.EventData = {
-        Key = v.Key
-        Title = v.Title
-        InfoText = v.InfoText
-        ReservationStartTime = v.ReservationStartTime
-        Slots = v.Slots |> Array.map CreateEventDataSlot.toDomain
-        RegistrationConfirmationMail = MailTemplate.toDomain v.RegistrationConfirmationMail
-        RequestConfirmationMail = Option.map MailTemplate.toDomain v.RequestConfirmationMail
-        EditorIds = editorIds
-    }
+    let tryToDomain editorIds (v: DataTransfer.CreateEventData) : Domain.EventData option =
+        RegistrationField.tryToDomainList v.RegistrationFields
+        |> Option.map (fun registrationFields -> {
+            Key = v.Key
+            Title = v.Title
+            InfoText = v.InfoText
+            ReservationStartTime = v.ReservationStartTime
+            Slots = v.Slots |> Array.map CreateEventDataSlot.toDomain
+            RegistrationConfirmationMail = MailTemplate.toDomain v.RegistrationConfirmationMail
+            RequestConfirmationMail = Option.map MailTemplate.toDomain v.RequestConfirmationMail
+            RegistrationFields = registrationFields
+            EditorIds = editorIds
+        })
 
 module PatchMailTemplate =
     let toDomain (v: DataTransfer.PatchMailTemplate) : Domain.MailTemplate =
@@ -104,8 +143,13 @@ module PatchEventDataSlot =
     let toDomain (v: DataTransfer.PatchEventDataSlot) = v.ToDomain()
 
 module PatchEventData =
-    let toDomain (v: DataTransfer.PatchEventData) : Domain.EventUpdateData =
-        {
+    let tryToDomain (v: DataTransfer.PatchEventData) : Domain.EventUpdateData option =
+        let registrationFields =
+            match v.RegistrationFields with
+            | Some fields -> RegistrationField.tryToDomainList fields |> Option.map Some
+            | None -> Some None
+        registrationFields
+        |> Option.map (fun registrationFields -> {
             Key = v.Key
             Title = v.Title
             InfoText = v.InfoText
@@ -113,4 +157,5 @@ module PatchEventData =
             Slots = v.Slots |> Array.map PatchEventDataSlot.toDomain
             RegistrationConfirmationMail = Option.map PatchMailTemplate.toDomain v.RegistrationConfirmationMail
             RequestConfirmationMail = if v.SetRequestConfirmationMail then Some (Option.map PatchMailTemplate.toDomain v.RequestConfirmationMail) else None
-        }
+            RegistrationFields = registrationFields
+        })

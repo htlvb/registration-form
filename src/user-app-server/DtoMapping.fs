@@ -27,10 +27,31 @@ module Slot =
         Type = SlotType.fromDomain slotUrl slot.Type
     }
 
+module RegistrationField =
+    let fromDomain (v: Domain.RegistrationField) : DataTransfer.RegistrationField = {
+        Key = v.Key
+        Label = v.Label
+        Type =
+            match v.Type with
+            | Domain.TextField -> "text"
+            | Domain.MailField -> "mail"
+            | Domain.PhoneField -> "phone"
+        Validator =
+            match v.Validator with
+            | Domain.NoValidation -> "none"
+            | Domain.NotEmpty -> "notEmpty"
+    }
+
 module Event =
     let fromDomain getSlotUrl = function
         | Domain.HiddenEvent v -> DataTransfer.HiddenEvent(v.Title, v.ReservationStartTime) :> DataTransfer.Event
-        | Domain.ReleasedEvent v -> DataTransfer.ReleasedEvent(v.Title, v.InfoText, [| for slot in v.Slots -> Slot.fromDomain (getSlotUrl slot) slot |]) :> DataTransfer.Event
+        | Domain.ReleasedEvent v ->
+            DataTransfer.ReleasedEvent(
+                v.Title,
+                v.InfoText,
+                [| for slot in v.Slots -> Slot.fromDomain (getSlotUrl slot) slot |],
+                v.RegistrationFields |> Array.map RegistrationField.fromDomain
+            ) :> DataTransfer.Event
 
 module BookingValidationError =
     let fromDomain getSlotUrl = function
@@ -39,7 +60,5 @@ module BookingValidationError =
         | Domain.SlotNotFound -> {| Error = "slot-not-found" |}
         | Domain.SlotUnavailable slot -> {| Error = "slot-unavailable"; SlotType = Slot.fromDomain (getSlotUrl slot) slot |> _.Type |}
         | Domain.InvalidSubscriptionQuantity -> {| Error = "invalid-subscription-quantity" |}
-        | Domain.InvalidSubscriberName -> {| Error = "invalid-subscriber-name" |}
-        | Domain.InvalidMailAddress -> {| Error = "invalid-mail-address" |}
-        | Domain.InvalidPhoneNumber -> {| Error = "invalid-phone-number" |}
+        | Domain.InvalidRegistrationField key -> {| Error = "invalid-registration-field"; Key = key |}
         | Domain.MaxQuantityPerBookingExceeded -> {| Error = "max-quantity-per-booking-exceeded" |}

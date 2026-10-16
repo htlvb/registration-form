@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import type { BookingError, BookingResult, ReleasedEvent, Slot } from '@/DataTransfer'
+import type { BookingError, BookingResult, RegistrationField, ReleasedEvent, Slot } from '@/DataTransfer'
 import { uiFetch } from '@/UIFetch'
 import _ from 'lodash'
 import { marked } from 'marked'
@@ -21,9 +21,13 @@ const infoText = computed(() => marked.parse(props.event.infoText))
 
 const selectedSlot = ref<Slot>()
 const selectedQuantity = ref<number>()
-const contactName = ref<string>()
-const contactMailAddress = ref<string>()
-const contactPhoneNumber = ref<string>()
+const registrationData = ref<Record<string, string>>({}) // values of registration fields by key
+
+const inputTypes: Record<RegistrationField['type'], string> = {
+  text: 'text',
+  mail: 'email',
+  phone: 'tel',
+}
 
 const selectedSlotMaxQuantity = computed(() => {
   if (selectedSlot.value === undefined) return 0
@@ -71,9 +75,7 @@ const doRegister = async () => {
     },
     body: JSON.stringify({
       quantity: selectedQuantity.value,
-      name: contactName.value,
-      mailAddress: contactMailAddress.value,
-      phoneNumber: contactPhoneNumber.value,
+      data: registrationData.value,
     })
   })
   if (result.succeeded) {
@@ -84,9 +86,7 @@ const doRegister = async () => {
     if (selectedSlotMaxQuantity.value > 1) {
       selectedQuantity.value = undefined
     }
-    contactName.value = undefined
-    contactMailAddress.value = undefined
-    contactPhoneNumber.value = undefined
+    registrationData.value = {}
     const bookingResult = await result.response.json() as BookingResult
     if (bookingResult.slotType !== undefined) {
       selectedSlot.value.type = bookingResult.slotType
@@ -117,15 +117,11 @@ const doRegister = async () => {
         case 'invalid-subscription-quantity':
           registrationErrorMessages.value.push('Bitte wählen Sie eine Anzahl aus.')
           break
-        case 'invalid-subscriber-name':
-          registrationErrorMessages.value.push('Bitte geben Sie Ihren Namen ein.')
+        case 'invalid-registration-field': {
+          const field = props.event.registrationFields.find(v => v.key === error.key)
+          registrationErrorMessages.value.push(`Bitte überprüfen Sie das Feld "${field?.label ?? error.key}".`)
           break
-        case 'invalid-mail-address':
-          registrationErrorMessages.value.push('Bitte geben Sie Ihre E-Mail-Adresse ein.')
-          break
-        case 'invalid-phone-number':
-          registrationErrorMessages.value.push('Bitte geben Sie Ihre Telefonnummer ein.')
-          break
+        }
         case 'max-quantity-per-booking-exceeded':
           registrationErrorMessages.value.push('Bitte wählen Sie eine Anzahl aus.')
           break
@@ -168,17 +164,9 @@ const doRegister = async () => {
       </div>
       <template v-else>
         <h2 class="text-lg mt-4">Kontaktdaten</h2>
-        <label class="input mt-2">
-          <span class="input-label">Name</span>
-          <input type="text" v-model="contactName" required class="input-text">
-        </label>
-        <label class="input mt-2">
-          <span class="input-label">E-Mail-Adresse</span>
-          <input type="email" v-model="contactMailAddress" required class="input-text">
-        </label>
-        <label class="input mt-2">
-          <span class="input-label">Telefonnummer</span>
-          <input type="tel" v-model="contactPhoneNumber" required class="input-text">
+        <label v-for="field in event.registrationFields" :key="field.key" class="input mt-2">
+          <span class="input-label">{{ field.label }}</span>
+          <input :type="inputTypes[field.type]" v-model="registrationData[field.key]" :required="field.validator === 'notEmpty'" maxlength="100" class="input-text">
         </label>
         <LoadButton :loading="isRegistering" class="mt-2">
           <template v-if="selectedSlot?.type.type === 'takenWithRequestPossible'">Anfragen</template>

@@ -39,9 +39,11 @@ let ``Doesn't find non-existing event`` () = async {
 
 let private getSampleReservationData quantity : DataTransfer.Subscriber =
     {
-        Name = "Albert"
-        MailAddress = "albert@einstein.com"
-        PhoneNumber = "07612/123456789"
+        Data = Map.ofList [
+            "FullName", "Albert"
+            "MailAddress", "albert@einstein.com"
+            "PhoneNumber", "07612/123456789"
+        ]
         Quantity = quantity
     }
 
@@ -166,9 +168,11 @@ let makeBookingAroundClosingDate offset = async {
         |> Option.defaultWith (fun () -> Assert.Fail("No free slot found"); Unchecked.defaultof<_>)
     server |> InMemoryServer.setTimeProviderTime (closingDate + offset)
     let reservationData : DataTransfer.Subscriber = {
-        Name = "Albert"
-        MailAddress = "albert@einstein.com"
-        PhoneNumber = "07612/123456789"
+        Data = Map.ofList [
+            "FullName", "Albert"
+            "MailAddress", "albert@einstein.com"
+            "PhoneNumber", "07612/123456789"
+        ]
         Quantity = 1
     }
     return! httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
@@ -231,4 +235,38 @@ let ``Can have booking request suggested`` () = async {
     Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
     let! responseMessage = response.Content.ReadFromJsonAsync<{| Error: string |}[]>() |> Async.AwaitTask
     Assert.Equal([{| Error = "slot-needs-request" |}], responseMessage)
+}
+
+[<Fact>]
+let ``Can't make booking with invalid registration fields`` () = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let reservationStartTime = FakeData.events.["tdot-2025"].ReservationStartTime
+    server |> InMemoryServer.setTimeProviderTime reservationStartTime
+    let! event = httpClient.GetFromJsonAsync<DataTransfer.Event>("/api/event/tdot-2025") |> Async.AwaitTask
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
+    let slotUrl =
+        releasedEvent.Slots
+        |> Array.tryPick (fun v -> match v.Type with | :? DataTransfer.SlotTypeFree as v -> Some v.Url | _ -> None)
+        |> Option.defaultWith (fun () -> Assert.Fail("No slot found"); Unchecked.defaultof<_>)
+    let reservationData : DataTransfer.Subscriber = {
+        Data = Map.ofList [ "FullName", " "; "MailAddress", "albert" ]
+        Quantity = 1
+    }
+    let! response = httpClient.PostAsJsonAsync(slotUrl, reservationData) |> Async.AwaitTask
+    Assert.Equal(enum StatusCodes.Status400BadRequest, response.StatusCode)
+    let! responseMessage = response.Content.ReadFromJsonAsync<{| Error: string; Key: string |}[]>() |> Async.AwaitTask
+    let expected = [|
+        {| Error = "invalid-registration-field"; Key = "FullName" |}
+        {| Error = "invalid-registration-field"; Key = "MailAddress" |}
+        {| Error = "invalid-registration-field"; Key = "PhoneNumber" |}
+    |]
+    Assert.Equal<{| Error: string; Key: string |}[]>(expected, responseMessage)
+}
+
+[<Fact>]
+let ``Can get registration fields of released event`` () = async {
+    let! event = getSampleEvent TimeSpan.Zero
+    let releasedEvent = event :?> DataTransfer.ReleasedEvent
+    Assert.Equal<string[]>([| "FullName"; "MailAddress"; "PhoneNumber" |], releasedEvent.RegistrationFields |> Array.map _.Key)
 }

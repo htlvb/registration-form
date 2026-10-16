@@ -17,7 +17,7 @@ type RegistrationController(
     jsonOptions: IOptions<JsonOptions>) as this =
     inherit ControllerBase()
 
-    let getSlotUrl eventKey slot =
+    let getSlotUrl eventKey (slot: Slot) =
         let createRequest =
             match slot.Type with
             | SlotTypeFree _
@@ -83,12 +83,16 @@ type RegistrationController(
                 let newSlotType =
                     SlotType.setCapacity slot.Type remainingCapacity
                     |> DtoMapping.SlotType.fromDomain (getSlotUrl bookingData.EventKey slot)
-                let! mailSendSucceeded = async {
-                    try
-                        do! bookingConfirmation.SendBookingConfirmation bookingConfirmationData
-                        return true
-                    with _ -> return false
-                }
+                let! mailSendSucceeded =
+                    match bookingConfirmationData with
+                    | Some bookingConfirmationData ->
+                        async {
+                            try
+                                do! bookingConfirmation.SendBookingConfirmation bookingConfirmationData
+                                return true
+                            with _ -> return false
+                        }
+                    | None -> async { return false }
                 let bookingResult: DataTransfer.BookingResult = {
                     SlotType = newSlotType
                     MailSendError = not mailSendSucceeded

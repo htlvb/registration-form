@@ -4,11 +4,16 @@ open HTLVB.RegistrationForm.Admin.Server
 open System
 open System.Text.Json.Serialization
 
+type RegistrationField = {
+    Key: string
+    Label: string
+    Type: string
+    Validator: string
+}
+
 type EventRegistration = {
     Quantity: int
-    Name: string
-    MailAddress: string
-    PhoneNumber: string
+    Data: Map<string, string>
     Timestamp: DateTime
     IsRequest: bool
     DeregistrationTime: DateTime option
@@ -38,6 +43,7 @@ type Event = {
     Slots: Slot[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    RegistrationFields: RegistrationField[]
     Url: string
     PublicRegistrationUrl: string
     CanDelete: bool
@@ -45,6 +51,7 @@ type Event = {
     CanAddSlot: bool
     CanEditSlot: bool
     CanDeleteSlot: bool
+    CanEditRegistrationFields: bool
     CanViewRegistrations: bool
 }
 
@@ -132,6 +139,7 @@ type PatchEventData = {
     RegistrationConfirmationMail: PatchMailTemplate option
     RequestConfirmationMail: PatchMailTemplate option
     SetRequestConfirmationMail: bool
+    RegistrationFields: RegistrationField[] option
 }
 type CreateEventDataSlot = {
     StartTime: DateTime
@@ -149,6 +157,7 @@ type CreateEventData = {
     Slots: CreateEventDataSlot[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    RegistrationFields: RegistrationField[]
 }
 
 type PatchSlotData = {

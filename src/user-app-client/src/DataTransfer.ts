@@ -9,6 +9,14 @@ export type ReleasedEvent = {
   title: string
   infoText: string
   slots: Slot[]
+  registrationFields: RegistrationField[]
+}
+
+export type RegistrationField = {
+  key: string
+  label: string
+  type: 'text' | 'mail' | 'phone'
+  validator: 'none' | 'notEmpty'
 }
 
 export type Slot = {
@@ -46,8 +54,6 @@ export type BookingError =
   | { error: 'slot-unavailable', slotType: SlotType }
   | { error: 'slot-needs-request', slotType: SlotType }
   | { error: 'invalid-subscription-quantity' }
-  | { error: 'invalid-subscriber-name' }
-  | { error: 'invalid-mail-address' }
-  | { error: 'invalid-phone-number' }
+  | { error: 'invalid-registration-field', key: string }
   | { error: 'max-quantity-per-booking-exceeded' }
   | { error: 'capacity-exceeded', slotType: SlotType }

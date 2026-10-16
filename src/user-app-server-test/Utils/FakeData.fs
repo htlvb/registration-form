@@ -3,6 +3,12 @@ module HTLVB.RegistrationForm.Server.Tests.Utils.FakeData
 open HTLVB.RegistrationForm.Server.Domain
 open System
 
+let registrationFields = [|
+    { Key = "FullName"; Label = "Name"; Type = TextField; Validator = NotEmpty }
+    { Key = "MailAddress"; Label = "E-Mail-Adresse"; Type = MailField; Validator = NotEmpty }
+    { Key = "PhoneNumber"; Label = "Telefonnummer"; Type = PhoneField; Validator = NotEmpty }
+|]
+
 let events =
     [
         {
@@ -23,6 +29,7 @@ let events =
                 ContentTemplate = "{{{FullName}}},\n\nvielen Dank für die Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck am {{{Date}}}.\nAufgrund von COVID-19 bitten wir Sie, pünktlich um {{{Time}}} zu Ihrer persönlichen Führung zu erscheinen.\nBei Änderungswünschen oder im Falle einer Verhinderung bitten wir Sie außerdem, uns sobald wie möglich Bescheid zu geben.\nAntworten Sie dafür auf diese E-Mail bzw. kontaktieren Sie uns telefonisch unter 07672/24605.\n\nWir freuen uns, Sie bei uns begrüßen zu dürfen."
             }
             RequestConfirmationMail = None
+            RegistrationFields = registrationFields
         }
         {
             Key = "lets-code-2425"
@@ -42,6 +49,7 @@ let events =
                 Subject = "Anfrage zum Programmierworkshop \"Let's code\""
                 ContentTemplate = "{{{FullName}}},\n\nvielen Dank für dein Interesse am Programmierworkshop \"Let''s code\" der HTL Vöcklabruck am {{{Date}}} um {{{Time}}}.\nZu dem Zeitpunkt sind leider keine Plätze mehr frei.\nWir melden uns aber bei dir, um gemeinsam eine Lösung zu finden.\n\nWir freuen uns auf dich."
             }
+            RegistrationFields = registrationFields
         }
     ]
     |> List.map (fun v -> v.Key, v)

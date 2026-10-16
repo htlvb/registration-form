@@ -6,7 +6,17 @@ import { uiFetchAuthorized } from './UIFetch'
 
 const props = defineProps<{
   eventSlot: DataTransfer.Slot
+  registrationFields: DataTransfer.RegistrationField[]
 }>()
+
+const getLinkUrl = (field: DataTransfer.RegistrationField, value: string | undefined) => {
+  if (value === undefined || value === '') return undefined
+  switch (field.type) {
+    case 'mail': return `mailto:${value}`
+    case 'phone': return `tel:${value}`
+    case 'text': return undefined
+  }
+}
 
 const summary = computed(() => {
   const activeRegistrations = props.eventSlot.registrations.filter(v => v.deregistrationTime === null)
@@ -62,11 +72,9 @@ const cancelRegistration = async (registration: DataTransfer.EventRegistration) 
       <table class="w-full text-sm text-left whitespace-nowrap">
         <thead>
           <tr class="border-b">
-            <th class="font-semibold px-2 py-1">Name</th>
+            <th v-for="field in registrationFields" :key="field.key" class="font-semibold px-2 py-1">{{ field.label }}</th>
             <th class="font-semibold px-2 py-1 text-right">Personen</th>
             <th class="font-semibold px-2 py-1">Art</th>
-            <th class="font-semibold px-2 py-1">E-Mail</th>
-            <th class="font-semibold px-2 py-1">Telefon</th>
             <th class="font-semibold px-2 py-1">Registriert</th>
             <th class="font-semibold px-2 py-1">Storniert</th>
             <th class="px-2 py-1"><span class="sr-only">Aktionen</span></th>
@@ -74,14 +82,15 @@ const cancelRegistration = async (registration: DataTransfer.EventRegistration) 
         </thead>
         <tbody class="divide-y">
           <tr v-for="registration in eventSlot.registrations" :key="registration.url" :class="{ 'opacity-50': registration.deregistrationTime !== null }">
-            <td class="px-2 py-1" :class="{ 'line-through': registration.deregistrationTime !== null }">{{ registration.name }}</td>
+            <td v-for="field in registrationFields" :key="field.key" class="px-2 py-1" :class="{ 'line-through': registration.deregistrationTime !== null }">
+              <a v-if="getLinkUrl(field, registration.data[field.key]) !== undefined" :href="getLinkUrl(field, registration.data[field.key])" class="underline">{{ registration.data[field.key] }}</a>
+              <template v-else>{{ registration.data[field.key] }}</template>
+            </td>
             <td class="px-2 py-1 text-right">{{ registration.quantity }}</td>
             <td class="px-2 py-1">
               <span v-if="registration.isRequest" class="rounded bg-amber-400/30 px-1">Anfrage</span>
               <span v-else>Registrierung</span>
             </td>
-            <td class="px-2 py-1"><a :href="`mailto:${registration.mailAddress}`" class="underline">{{ registration.mailAddress }}</a></td>
-            <td class="px-2 py-1"><a :href="`tel:${registration.phoneNumber}`" class="underline">{{ registration.phoneNumber }}</a></td>
             <td class="px-2 py-1">{{ DateTime.format(new Date(registration.timestamp)) }}</td>
             <td class="px-2 py-1">{{ registration.deregistrationTime !== null ? DateTime.format(new Date(registration.deregistrationTime)) : '' }}</td>
             <td class="px-2 py-1 text-right">

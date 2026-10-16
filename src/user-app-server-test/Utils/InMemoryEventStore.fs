@@ -6,9 +6,7 @@ open System
 type EventRegistration = {
     Time: DateTime
     Quantity: int
-    Name: string
-    MailAddress: string
-    PhoneNumber: string
+    Data: Map<string, string>
     Timestamp: DateTime
 }
 
@@ -52,9 +50,7 @@ type InMemoryEventStore(events, eventRegistrations) =
                 let eventRegistration = {
                     Time = bookingData.SlotTime
                     Quantity = bookingData.Subscriber.Quantity.Value
-                    Name = bookingData.Subscriber.Name.Value
-                    MailAddress = bookingData.Subscriber.MailAddress.Value
-                    PhoneNumber = bookingData.Subscriber.PhoneNumber.Value
+                    Data = bookingData.Subscriber.Data.Value
                     Timestamp = bookingData.Timestamp
                 }
                 eventRegistrations <-

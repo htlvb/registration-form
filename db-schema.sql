@@ -67,6 +67,23 @@ ALTER TABLE event ADD COLUMN editor_ids JSONB;
 UPDATE event SET editor_ids = '[]'::jsonb;
 ALTER TABLE event ALTER COLUMN editor_ids SET NOT NULL;
 
+-- Specify registration fields per event
+ALTER TABLE event ADD COLUMN registration_fields JSONB;
+UPDATE event SET registration_fields = '[
+    {"key": "FullName", "label": "Name", "type": "text", "validator": "notEmpty"},
+    {"key": "MailAddress", "label": "E-Mail-Adresse", "type": "mail", "validator": "notEmpty"},
+    {"key": "PhoneNumber", "label": "Telefonnummer", "type": "phone", "validator": "notEmpty"}
+]'::jsonb;
+ALTER TABLE event ALTER COLUMN registration_fields SET NOT NULL;
+
+ALTER TABLE event_registration ADD COLUMN data JSONB;
+UPDATE event_registration SET data = jsonb_build_object('FullName', name, 'MailAddress', mail_address, 'PhoneNumber', phone_number);
+ALTER TABLE event_registration ALTER COLUMN data SET NOT NULL;
+ALTER TABLE event_registration
+    DROP COLUMN name,
+    DROP COLUMN mail_address,
+    DROP COLUMN phone_number;
+
 -- Clean up
 /*
 DROP TABLE event_registration;

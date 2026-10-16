@@ -26,7 +26,9 @@ type EditableEvent = {
   slots: EditableSlot[]
   registrationConfirmationMail: DataTransfer.MailTemplate
   requestConfirmationMail: DataTransfer.MailTemplate // only used if a slot allows requests
+  registrationFields: EditableRegistrationField[]
 }
+type EditableRegistrationField = DataTransfer.RegistrationField & { id: number }
 type EditableSlot = {
   id: number
   original: DataTransfer.Slot | undefined
@@ -64,6 +66,7 @@ const onKeyInput = () => {
 }
 
 let slotId = 0
+let registrationFieldId = 0
 const beginEdit = () => {
   editEvent.value = {
     key: props.event.key,
@@ -89,6 +92,7 @@ const beginEdit = () => {
     // copies, so that editing doesn't change the event
     registrationConfirmationMail: { ...props.event.registrationConfirmationMail },
     requestConfirmationMail: props.event.requestConfirmationMail !== null ? { ...props.event.requestConfirmationMail } : { subject: '', contentTemplate: '' },
+    registrationFields: props.event.registrationFields.map(v => ({ ...v, id: registrationFieldId++ })),
   }
 }
 const cancelEdit = () => {
@@ -143,6 +147,34 @@ const deleteSlot = (slot: EditableSlot) => {
 const needsRequestConfirmationMail = (edit: EditableEvent) => edit.slots.some(v => !v.delete && v.canRequestIfFullyBooked)
 const getRequestConfirmationMail = (edit: EditableEvent) => needsRequestConfirmationMail(edit) ? edit.requestConfirmationMail : null
 
+const registrationFieldTypes: { value: DataTransfer.RegistrationField['type'], label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'mail', label: 'E-Mail-Adresse' },
+  { value: 'phone', label: 'Telefonnummer' },
+]
+const registrationFieldValidators: { value: DataTransfer.RegistrationField['validator'], label: string }[] = [
+  { value: 'none', label: 'Optional' },
+  { value: 'notEmpty', label: 'Pflichtfeld' },
+]
+const addRegistrationField = () => {
+  if (editEvent.value === undefined) return
+  editEvent.value.registrationFields.push({ id: registrationFieldId++, key: '', label: '', type: 'text', validator: 'none' })
+}
+const deleteRegistrationField = (field: EditableRegistrationField) => {
+  if (editEvent.value === undefined) return
+  editEvent.value.registrationFields = editEvent.value.registrationFields.filter(v => v !== field)
+}
+const moveRegistrationFieldUp = (index: number) => {
+  if (editEvent.value === undefined || index <= 0) return
+  const fields = editEvent.value.registrationFields
+  fields.splice(index - 1, 2, fields[index]!, fields[index - 1]!)
+}
+const getRegistrationFields = (edit: EditableEvent) : DataTransfer.RegistrationField[] =>
+  edit.registrationFields.map(v => ({ key: v.key.trim(), label: v.label.trim(), type: v.type, validator: v.validator }))
+const isSameRegistrationFieldList = (a: DataTransfer.RegistrationField[], b: DataTransfer.RegistrationField[]) =>
+  a.length === b.length && a.every((v, i) => v.key === b[i]!.key && v.label === b[i]!.label && v.type === b[i]!.type && v.validator === b[i]!.validator)
+const getPlaceholder = (key: string) => `{{{${key}}}}`
+
 const isValidTime = (v: string | undefined) => v !== undefined && v !== '' && !isNaN(new Date(v).getTime())
 
 const validate = (edit: EditableEvent) => {
@@ -158,6 +190,14 @@ const validate = (edit: EditableEvent) => {
     if (slot.hasRemainingCapacity && (!Number.isInteger(slot.remainingCapacity) || slot.remainingCapacity < 0)) return 'Die freien Plätze müssen eine ganze Zahl ≥ 0 sein.'
     if (slot.hasMaxQuantityPerBooking && (!Number.isInteger(slot.maxQuantityPerBooking) || slot.maxQuantityPerBooking < 1)) return 'Die maximale Personenanzahl pro Registrierung muss eine ganze Zahl ≥ 1 sein.'
   }
+  const registrationFields = getRegistrationFields(edit)
+  for (const field of registrationFields) {
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(field.key)) return `Der Schlüssel "${field.key}" eines Registrierungsfelds ist ungültig (nur Buchstaben, Ziffern und _, beginnend mit einem Buchstaben).`
+    if (field.key === 'Date' || field.key === 'Time') return `Der Schlüssel "${field.key}" ist für Mailvorlagen reserviert.`
+    if (field.label === '') return 'Jedes Registrierungsfeld braucht eine Bezeichnung.'
+  }
+  if (new Set(registrationFields.map(v => v.key)).size !== registrationFields.length) return 'Zwei Registrierungsfelder dürfen nicht denselben Schlüssel haben.'
+  if (registrationFields.find(v => v.type === 'mail')?.validator !== 'notEmpty') return 'Das erste Registrierungsfeld vom Typ E-Mail-Adresse muss ein Pflichtfeld sein, weil Bestätigungen dorthin gesendet werden.'
   if (edit.registrationConfirmationMail.subject.trim() === '') return 'Der Betreff der Registrierungsbestätigung darf nicht leer sein.'
   if (needsRequestConfirmationMail(edit)) {
     if (edit.requestConfirmationMail.subject.trim() === '') return 'Der Betreff der Anfragebestätigung darf nicht leer sein.'
@@ -239,6 +279,7 @@ const getNewEvent = (edit: EditableEvent) : DataTransfer.CreateEventData => {
     })),
     registrationConfirmationMail: edit.registrationConfirmationMail,
     requestConfirmationMail: getRequestConfirmationMail(edit),
+    registrationFields: getRegistrationFields(edit),
   }
 }
 
@@ -251,6 +292,7 @@ const getEventPatch = (edit: EditableEvent) : DataTransfer.PatchEventData => {
   const canEditEventData = props.event.canEditEventData
   const requestConfirmationMail = getRequestConfirmationMail(edit)
   const setRequestConfirmationMail = canEditEventData && !isSameMailTemplate(requestConfirmationMail, props.event.requestConfirmationMail)
+  const registrationFields = getRegistrationFields(edit)
   return {
     key: null,
     title: canEditEventData && edit.title !== props.event.title ? edit.title : null,
@@ -260,6 +302,7 @@ const getEventPatch = (edit: EditableEvent) : DataTransfer.PatchEventData => {
     registrationConfirmationMail: canEditEventData && !isSameMailTemplate(edit.registrationConfirmationMail, props.event.registrationConfirmationMail) ? edit.registrationConfirmationMail : null,
     requestConfirmationMail: setRequestConfirmationMail ? requestConfirmationMail : null,
     setRequestConfirmationMail,
+    registrationFields: props.event.canEditRegistrationFields && !isSameRegistrationFieldList(registrationFields, props.event.registrationFields) ? registrationFields : null,
   }
 }
 
@@ -431,6 +474,59 @@ const deleteEvent = async () => {
           </li>
         </ol>
       </div>
+      <div class="flex flex-col gap-1">
+        <span class="text-sm">Registrierungsfelder</span>
+        <table v-if="editEvent !== undefined && event.canEditRegistrationFields" class="text-sm text-left">
+          <thead>
+            <tr>
+              <th class="font-semibold px-1">Schlüssel</th>
+              <th class="font-semibold px-1">Bezeichnung</th>
+              <th class="font-semibold px-1">Typ</th>
+              <th class="font-semibold px-1">Prüfung</th>
+              <th class="px-1"><span class="sr-only">Aktionen</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(field, index) in editEvent.registrationFields" :key="field.id">
+              <td class="p-1"><input type="text" v-model="field.key" class="input-text w-full" /></td>
+              <td class="p-1"><input type="text" v-model="field.label" class="input-text w-full" /></td>
+              <td class="p-1">
+                <select v-model="field.type" class="input-text w-full">
+                  <option v-for="fieldType in registrationFieldTypes" :key="fieldType.value" :value="fieldType.value">{{ fieldType.label }}</option>
+                </select>
+              </td>
+              <td class="p-1">
+                <select v-model="field.validator" class="input-text w-full">
+                  <option v-for="validator in registrationFieldValidators" :key="validator.value" :value="validator.value">{{ validator.label }}</option>
+                </select>
+              </td>
+              <td class="p-1 whitespace-nowrap">
+                <a v-if="index > 0" class="p-2 cursor-pointer" title="Nach oben" @click="moveRegistrationFieldUp(index)">
+                  <i class="fa-solid fa-arrow-up"></i>
+                </a>
+                <a class="p-2 cursor-pointer" title="Löschen" @click="deleteRegistrationField(field)">
+                  <i class="fa-solid fa-trash-can"></i>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" class="p-1">
+                <a class="button" @click="addRegistrationField">
+                  <i class="fa-solid fa-plus"></i>
+                </a>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+        <ul v-else class="ml-4">
+          <li v-for="field in event.registrationFields" :key="field.key">
+            {{ field.label }}
+            <span class="text-sm">({{ registrationFieldTypes.find(v => v.value === field.type)?.label }}, {{ registrationFieldValidators.find(v => v.value === field.validator)?.label }}, <code v-text="getPlaceholder(field.key)"></code>)</span>
+          </li>
+        </ul>
+      </div>
       <template v-if="editEvent !== undefined">
         <div class="flex flex-col gap-1">
           <span class="text-sm">Registrierungsbestätigung</span>
@@ -442,13 +538,16 @@ const deleteEvent = async () => {
           <input type="text" v-model="editEvent.requestConfirmationMail.subject" class="input-text" placeholder="Betreff" :disabled="!event.canEditEventData" />
           <textarea v-model="editEvent.requestConfirmationMail.contentTemplate" class="input-text" rows="6" placeholder="Inhalt" :disabled="!event.canEditEventData"></textarea>
         </div>
-        <span class="text-sm">Platzhalter im Inhalt: <code v-pre>{{{FullName}}}</code>, <code v-pre>{{{Date}}}</code>, <code v-pre>{{{Time}}}</code></span>
+        <span class="text-sm">
+          Platzhalter im Inhalt:
+          <template v-for="key in [...editEvent.registrationFields.map(v => v.key.trim()).filter(v => v !== ''), 'Date', 'Time']" :key="key"><code v-text="getPlaceholder(key)"></code>&#32;</template>
+        </span>
       </template>
     </div>
     <div v-if="isShowingRegistrations && editEvent === undefined" class="flex flex-col gap-2">
       <span class="text-sm">Registrierungen</span>
       <span v-if="event.slots.length === 0" class="ml-4">Keine Slots vorhanden.</span>
-      <SlotRegistrations v-for="slot in event.slots" :key="slot.startTime" :event-slot="slot" @registration-cancelled="$emit('eventUpdated')" />
+      <SlotRegistrations v-for="slot in event.slots" :key="slot.startTime" :event-slot="slot" :registration-fields="event.registrationFields" @registration-cancelled="$emit('eventUpdated')" />
     </div>
   </div>
 </template>

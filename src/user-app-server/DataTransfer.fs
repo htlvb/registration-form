@@ -41,17 +41,23 @@ and HiddenEvent(title: string, reservationStartTime: DateTime) =
     inherit Event()
     member _.Title = title
     member _.ReservationStartTime = reservationStartTime
-and ReleasedEvent(title: string, infoText: string, slots: Slot[]) =
+and ReleasedEvent(title: string, infoText: string, slots: Slot[], registrationFields: RegistrationField[]) =
     inherit Event()
     member _.Title = title
     member _.InfoText = infoText
     member _.Slots = slots
+    member _.RegistrationFields = registrationFields
+and RegistrationField = {
+    Key: string
+    Label: string
+    Type: string
+    Validator: string
+}
 
 type Subscriber = {
     Quantity: int
-    Name: string
-    MailAddress: string
-    PhoneNumber: string
+    /// values of registration fields by key
+    Data: Map<string, string>
 }
 
 type BookingResult = {

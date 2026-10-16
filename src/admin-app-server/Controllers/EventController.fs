@@ -71,14 +71,13 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     member _.CreateEvent([<FromBody>]data: DataTransfer.CreateEventData) = async {
         // creator must be an editor, otherwise event writers couldn't edit their own events
         let editorIds = this.User.Identity.Name |> Option.ofObj |> Option.toArray
-        let event = DtoMapping.CreateEventData.toDomain editorIds data
-        if String.IsNullOrWhiteSpace event.Key || String.IsNullOrWhiteSpace event.Title then
-            return this.BadRequest() :> IActionResult
-        elif not (event.Slots |> Array.forall (Domain.Slot.isInFuture (timeProvider.GetLocalNow().DateTime))) then
-            return this.BadRequest()
-        elif not (Domain.EventData.hasRequiredRequestConfirmationMail event) then
-            return this.BadRequest()
-        else
+        match DtoMapping.CreateEventData.tryToDomain editorIds data with
+        | None -> return this.BadRequest() :> IActionResult
+        | Some event when String.IsNullOrWhiteSpace event.Key || String.IsNullOrWhiteSpace event.Title -> return this.BadRequest()
+        | Some event when not (event.Slots |> Array.forall (Domain.Slot.isInFuture (timeProvider.GetLocalNow().DateTime))) -> return this.BadRequest()
+        | Some event when not (Domain.EventData.hasRequiredRequestConfirmationMail event) -> return this.BadRequest()
+        | Some event when not (Domain.RegistrationField.isValidFieldList event.RegistrationFields) -> return this.BadRequest()
+        | Some event ->
             match! eventStore.CreateEvent event with
             | Ok () -> return this.Created(getEventUrl event.Key, null)
             | Error Domain.EventKeyAlreadyExists -> return this.Conflict()
@@ -90,15 +89,14 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         | EventNotFound -> return this.NotFound() :> IActionResult
         | EventAuthorizationFailed _ -> return this.Unauthorized()
         | EventAuthorizationSucceeded event ->
-            let update = DtoMapping.PatchEventData.toDomain data
             let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
-            if not (Domain.EventPermissions.allowsUpdate update permissions) then
-                return this.BadRequest()
-            elif not (Domain.SlotUpdate.createsOnlyFutureSlots (timeProvider.GetLocalNow().DateTime) update.Slots) then
-                return this.BadRequest()
-            elif not (Domain.EventData.applyUpdate update event |> Domain.EventData.hasRequiredRequestConfirmationMail) then
-                return this.BadRequest()
-            else
+            match DtoMapping.PatchEventData.tryToDomain data with
+            | None -> return this.BadRequest()
+            | Some update when not (Domain.EventPermissions.allowsUpdate update permissions) -> return this.BadRequest()
+            | Some update when not (Domain.SlotUpdate.createsOnlyFutureSlots (timeProvider.GetLocalNow().DateTime) update.Slots) -> return this.BadRequest()
+            | Some update when not (Domain.EventData.applyUpdate update event |> Domain.EventData.hasRequiredRequestConfirmationMail) -> return this.BadRequest()
+            | Some update when not (update.RegistrationFields |> Option.forall Domain.RegistrationField.isValidFieldList) -> return this.BadRequest()
+            | Some update ->
                 do! eventStore.UpdateEvent event.Key update
                 return this.Ok()
     }

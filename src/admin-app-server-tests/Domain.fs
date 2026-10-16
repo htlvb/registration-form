@@ -15,6 +15,7 @@ let private event : Domain.EventData = {
     Slots = [| slot (DateTime.Today.AddDays 1.) false |]
     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
     RequestConfirmationMail = None
+    RegistrationFields = Domain.RegistrationField.defaultFields
     EditorIds = [| "EINA@htlvb.at" |]
 }
 
@@ -26,6 +27,7 @@ let private noUpdate : Domain.EventUpdateData = {
     Slots = [||]
     RegistrationConfirmationMail = None
     RequestConfirmationMail = None
+    RegistrationFields = None
 }
 
 [<Tests>]
@@ -55,6 +57,25 @@ let tests =
             let event = { event with Slots = [| slot (DateTime.Today.AddDays 1.) true |]; RequestConfirmationMail = Some { Subject = "Anfrage"; ContentTemplate = "Danke für deine Anfrage" } }
             let updatedEvent = Domain.EventData.applyUpdate { noUpdate with RequestConfirmationMail = Some None } event
             Expect.isFalse (Domain.EventData.hasRequiredRequestConfirmationMail updatedEvent) "Updated event should be invalid"
+        }
+
+        test "Default registration fields are valid" {
+            Expect.isTrue (Domain.RegistrationField.isValidFieldList Domain.RegistrationField.defaultFields) "Default fields should be valid"
+        }
+
+        test "Registration fields need a required mail field" {
+            let fields = Domain.RegistrationField.defaultFields |> Array.filter (fun v -> v.Type <> Domain.MailField)
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList fields) "Fields without mail field should be invalid"
+            let fields = Domain.RegistrationField.defaultFields |> Array.map (fun v -> { v with Validator = Domain.NoValidation })
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList fields) "Fields with optional mail field should be invalid"
+        }
+
+        test "Registration field keys must be valid and unique" {
+            let withKey key = Array.append Domain.RegistrationField.defaultFields [| { Key = key; Label = "Schule"; Type = Domain.TextField; Validator = Domain.NoValidation } |]
+            Expect.isTrue (Domain.RegistrationField.isValidFieldList (withKey "School_1")) "Field with valid key should be valid"
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "FullName")) "Field with duplicate key should be invalid"
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "Date")) "Field with reserved key should be invalid"
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "Full Name")) "Field with invalid key should be invalid"
         }
 
         test "Replacing slot that allows requests with one that doesn't is valid" {

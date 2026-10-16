@@ -17,6 +17,41 @@ type MailTemplate = {
     Subject: string
     ContentTemplate: string
 }
+
+type RegistrationFieldType =
+    | TextField
+    | MailField
+    | PhoneField
+type RegistrationFieldValidator =
+    | NoValidation
+    | NotEmpty
+type RegistrationField = {
+    /// e.g. used as placeholder in mail templates
+    Key: string
+    Label: string
+    Type: RegistrationFieldType
+    Validator: RegistrationFieldValidator
+}
+module RegistrationField =
+    let defaultFields = [|
+        { Key = "FullName"; Label = "Name"; Type = TextField; Validator = NotEmpty }
+        { Key = "MailAddress"; Label = "E-Mail-Adresse"; Type = MailField; Validator = NotEmpty }
+        { Key = "PhoneNumber"; Label = "Telefonnummer"; Type = PhoneField; Validator = NotEmpty }
+    |]
+
+    /// placeholders in mail templates that are filled by the user app
+    let reservedKeys = set [ "Date"; "Time" ]
+
+    let isValidKey (key: string) =
+        Text.RegularExpressions.Regex.IsMatch(key, @"^[A-Za-z][A-Za-z0-9_]*$") &&
+        not (reservedKeys.Contains key)
+
+    /// confirmation mails are sent to the first mail field, so it must always be filled
+    let isValidFieldList (fields: RegistrationField[]) =
+        fields |> Array.forall (fun v -> isValidKey v.Key && not (String.IsNullOrWhiteSpace v.Label)) &&
+        (fields |> Array.distinctBy _.Key).Length = fields.Length &&
+        fields |> Array.tryFind (fun v -> v.Type = MailField) |> Option.exists (fun v -> v.Validator = NotEmpty)
+
 type EventData = {
     Key: string
     Title: string
@@ -25,6 +60,7 @@ type EventData = {
     Slots: Slot[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    RegistrationFields: RegistrationField[]
     EditorIds: string[]
 }
 type Event =
@@ -71,6 +107,7 @@ type EventUpdateData = {
     Slots: SlotUpdate[]
     RegistrationConfirmationMail: MailTemplate option
     RequestConfirmationMail: MailTemplate option option
+    RegistrationFields: RegistrationField[] option
 }
 
 module EventData =
@@ -105,6 +142,7 @@ module EventData =
                 Array.concat [ deletes; updates; creates ] |> Array.fold applySlotUpdate event.Slots
             RegistrationConfirmationMail = data.RegistrationConfirmationMail |> Option.defaultValue event.RegistrationConfirmationMail
             RequestConfirmationMail = data.RequestConfirmationMail |> Option.defaultValue event.RequestConfirmationMail
+            RegistrationFields = data.RegistrationFields |> Option.defaultValue event.RegistrationFields
             EditorIds = event.EditorIds
         }
 
@@ -119,13 +157,15 @@ type EventPermissions = {
     CanAddSlot: bool
     CanEditSlot: bool
     CanDeleteSlot: bool
+    CanEditRegistrationFields: bool
     CanViewRegistrations: bool
 }
 module EventPermissions =
     let fromEvent = function
-        | DraftEvent _ -> { CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanViewRegistrations = false }
-        | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true }
-        | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanViewRegistrations = true }
+        // registration fields can't change once there might be registrations
+        | DraftEvent _ -> { CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanEditRegistrationFields = true; CanViewRegistrations = false }
+        | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
+        | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
 
     let allowsUpdate (update: EventUpdateData) permissions =
         let changesEventData =
@@ -140,6 +180,7 @@ module EventPermissions =
             | UpdateSlot _ -> permissions.CanEditSlot
             | DeleteSlot _ -> permissions.CanDeleteSlot
         (not changesEventData || permissions.CanEditEventData) &&
+        (update.RegistrationFields.IsNone || permissions.CanEditRegistrationFields) &&
         update.Slots |> Array.forall allowsSlotUpdate
 
 type EventRegistration = {
@@ -147,9 +188,8 @@ type EventRegistration = {
     EventKey: string
     Time: DateTime
     Quantity: int
-    Name: string
-    MailAddress: string
-    PhoneNumber: string
+    /// values of registration fields by key
+    Data: Map<string, string>
     Timestamp: DateTime
     IsRequest: bool
     DeregistrationTime: DateTime option

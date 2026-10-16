@@ -10,7 +10,7 @@ open Xunit
 
 let private startDb() = task {
     let pgsqlContainer =
-        (new PostgreSqlBuilder())
+        (new PostgreSqlBuilder("postgres:16-alpine"))
             .WithBindMount(Path.GetFullPath("db-schema.sql"), "/docker-entrypoint-initdb.d/01-schema.sql")
             .Build()
     do! pgsqlContainer.StartAsync()
@@ -19,7 +19,7 @@ let private startDb() = task {
 
 let private insertSampleEvent (dataSource: NpgsqlDataSource) remainingCapacity = task {
     use! connection = dataSource.OpenConnectionAsync()
-    let! _ = connection.ExecuteAsync("INSERT INTO event (key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template) VALUES ('schulfuehrungen-2025', 'Schulführungen 2025', 'Bitte melden Sie sich für eine Schulführung an.', '2024-09-29 00:00:00', 'Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck', '{{{FullName}}}, danke für die Anmeldung am {{{Date}}} um {{{Time}}}.')")
+    let! _ = connection.ExecuteAsync("INSERT INTO event (key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, editor_ids, registration_fields) VALUES ('schulfuehrungen-2025', 'Schulführungen 2025', 'Bitte melden Sie sich für eine Schulführung an.', '2024-09-29 00:00:00', 'Anmeldung zum Tag der offenen Tür der HTL Vöcklabruck', '{{{FullName}}}, danke für die Anmeldung am {{{Date}}} um {{{Time}}}.', '[]'::jsonb, '[{\"key\": \"FullName\", \"label\": \"Name\", \"type\": \"text\", \"validator\": \"notEmpty\"}]'::jsonb)")
     let! _ = connection.ExecuteAsync("INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, @RemainingCapacity, FALSE)", {| RemainingCapacity = remainingCapacity |})
     ()
 }
@@ -29,9 +29,9 @@ let private sampleEventRegistration quantity : Domain.BookingData = {
     SlotTime = DateTime(2025, 1, 28, 14, 0, 0)
     Subscriber = {
         Quantity = Domain.PositiveInteger.TryCreate quantity |> Option.get
-        Name = Domain.SubscriberName.TryCreate "Albert" |> Option.get
-        MailAddress = Domain.MailAddress.TryCreate "albert@einstein.com" |> Option.get
-        PhoneNumber = Domain.PhoneNumber.TryCreate "07612/123456789" |> Option.get
+        Data =
+            Domain.SubscriberData.TryCreate Utils.FakeData.registrationFields (Map.ofList [ "FullName", "Albert"; "MailAddress", "albert@einstein.com"; "PhoneNumber", "07612/123456789" ])
+            |> Result.defaultWith (fun _ -> failwith "Invalid subscriber data")
     }
     Timestamp = DateTime.Now
 }

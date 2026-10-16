@@ -8,11 +8,16 @@ export type Slot = {
   registrations: EventRegistration[]
 }
 
+export type RegistrationField = {
+  key: string
+  label: string
+  type: 'text' | 'mail' | 'phone'
+  validator: 'none' | 'notEmpty'
+}
+
 export type EventRegistration = {
   quantity: number
-  name: string
-  mailAddress: string
-  phoneNumber: string
+  data: Record<string, string> // values of registration fields by key
   timestamp: string
   isRequest: boolean
   deregistrationTime: string | null
@@ -32,6 +37,7 @@ export type Event = {
   slots: Slot[]
   registrationConfirmationMail: MailTemplate
   requestConfirmationMail: MailTemplate | null
+  registrationFields: RegistrationField[]
   url: string
   publicRegistrationUrl: string
   canDelete: boolean
@@ -39,6 +45,7 @@ export type Event = {
   canAddSlot: boolean
   canEditSlot: boolean
   canDeleteSlot: boolean
+  canEditRegistrationFields: boolean
   canViewRegistrations: boolean
 }
 
@@ -63,6 +70,7 @@ export type CreateEventData = {
   slots: CreateEventDataSlot[]
   registrationConfirmationMail: MailTemplate
   requestConfirmationMail: MailTemplate | null
+  registrationFields: RegistrationField[]
 }
 
 export type PatchEventDataSlot =
@@ -102,4 +110,5 @@ export type PatchEventData = {
   registrationConfirmationMail: MailTemplate | null
   requestConfirmationMail: MailTemplate | null
   setRequestConfirmationMail: boolean
+  registrationFields: RegistrationField[] | null
 }

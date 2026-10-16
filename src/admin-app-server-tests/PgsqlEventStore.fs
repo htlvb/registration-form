@@ -26,14 +26,12 @@ let addRegistrationWith (dataSource: NpgsqlDataSource) (eventKey: string) (time:
         ("event_key", eventKey :> obj)
         ("time", time)
         ("quantity", quantity)
-        ("name", "Albert Einstein")
-        ("mail_address", "albert@einstein.com")
-        ("phone_number", "0732 524326")
+        ("data", """{ "FullName": "Albert Einstein", "MailAddress": "albert@einstein.com", "PhoneNumber": "0732 524326" }""")
         ("time_stamp", DateTime.Now)
         ("is_request", isRequest)
     ]
     let fieldNames = fields |> List.map fst |> String.concat ", "
-    let parameterNames = fields |> List.map (fst >> sprintf "@%s") |> String.concat ", "
+    let parameterNames = fields |> List.map (function ("data", _) -> "@data::jsonb" | (name, _) -> $"@%s{name}") |> String.concat ", "
     let parameters =
         let p = DynamicParameters()
         fields |> List.iter (fun (name, value) -> p.Add(name, value))
@@ -81,6 +79,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let! actual = eventStore.GetEvents()
@@ -110,6 +109,7 @@ let tests =
                     |]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    RegistrationFields = Domain.RegistrationField.defaultFields
                     EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
@@ -137,6 +137,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! createEvent eventStore event
@@ -158,6 +159,7 @@ let tests =
                 Slots = [||]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.UpdateEvent "lets-code-2425" {
@@ -168,6 +170,7 @@ let tests =
                 Slots = [||]
                 RegistrationConfirmationMail = None
                 RequestConfirmationMail = None
+                RegistrationFields = None
             }
             let! actual = eventStore.GetEvents()
             let expected : Domain.EventData list = [
@@ -179,6 +182,7 @@ let tests =
                     Slots = [||]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    RegistrationFields = Domain.RegistrationField.defaultFields
                     EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
@@ -206,6 +210,7 @@ let tests =
                 )
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.UpdateEvent "lets-code-2425" {
@@ -243,6 +248,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = None
                 RequestConfirmationMail = None
+                RegistrationFields = None
             }
             let! actual = async {
                 let! list = eventStore.GetEvents()
@@ -291,6 +297,7 @@ let tests =
                     |]
                     RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                     RequestConfirmationMail = None
+                    RegistrationFields = Domain.RegistrationField.defaultFields
                     EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
@@ -309,6 +316,7 @@ let tests =
                 Slots = [||]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.UpdateEvent "lets-code-2425" {
@@ -319,6 +327,7 @@ let tests =
                 Slots = [||]
                 RegistrationConfirmationMail = Some { Subject = "Neue Anmeldung"; ContentTemplate = "Vielen Dank für deine Anmeldung" }
                 RequestConfirmationMail = Some (Some { Subject = "Anfrage"; ContentTemplate = "Danke für deine Anfrage" })
+                RegistrationFields = None
             }
             let! actual = eventStore.GetEvents()
             let expected : Domain.EventData list = [
@@ -330,10 +339,45 @@ let tests =
                     Slots = [||]
                     RegistrationConfirmationMail = { Subject = "Neue Anmeldung"; ContentTemplate = "Vielen Dank für deine Anmeldung" }
                     RequestConfirmationMail = Some { Subject = "Anfrage"; ContentTemplate = "Danke für deine Anfrage" }
+                    RegistrationFields = Domain.RegistrationField.defaultFields
                     EditorIds = [| "EINA@htlvb.at" |]
                 }
             ]
             Expect.equal actual expected "Mail templates should have been updated"
+        }
+
+        testCaseTask "Can update registration fields" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            let event : Domain.EventData = {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [||]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
+                EditorIds = [| "EINA@htlvb.at" |]
+            }
+            do! createEvent eventStore event
+            let registrationFields : Domain.RegistrationField[] = [|
+                { Key = "MailAddress"; Label = "E-Mail"; Type = Domain.MailField; Validator = Domain.NotEmpty }
+                { Key = "School"; Label = "Schule"; Type = Domain.TextField; Validator = Domain.NoValidation }
+            |]
+            do! eventStore.UpdateEvent "lets-code-2425" {
+                Key = None
+                Title = None
+                InfoText = None
+                ReservationStartTime = None
+                Slots = [||]
+                RegistrationConfirmationMail = None
+                RequestConfirmationMail = None
+                RegistrationFields = Some registrationFields
+            }
+            let! actual = eventStore.TryGetEvent "lets-code-2425"
+            Expect.equal actual (Some { event with RegistrationFields = registrationFields }) "Registration fields should have been updated"
         }
 
         testCaseTask "Can replace deleted slot with new slot at the same time" <| fun () -> task {
@@ -358,6 +402,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let newSlot : Domain.Slot = {
@@ -376,6 +421,7 @@ let tests =
                 Slots = [| Domain.CreateSlot newSlot; Domain.DeleteSlot slotTime |]
                 RegistrationConfirmationMail = None
                 RequestConfirmationMail = None
+                RegistrationFields = None
             }
             let! actual = eventStore.GetEvents()
             Expect.equal (actual |> List.map _.Slots) [ [| newSlot |] ] "Slot should have been replaced"
@@ -402,6 +448,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8)) |> Async.Ignore
@@ -430,6 +477,7 @@ let tests =
                     |]
                     RegistrationConfirmationMail = None
                     RequestConfirmationMail = None
+                    RegistrationFields = None
                 }
                 failtest "Updating event slot time with registration should fail"
             with
@@ -458,6 +506,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             do! eventStore.DeleteEvent "lets-code-2425"
@@ -483,6 +532,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let! _ = addRegistrationWith dataSource "lets-code-2425" slot1 2 false
@@ -518,6 +568,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let! registrationId = addRegistrationWith dataSource "lets-code-2425" slot 3 false
@@ -542,6 +593,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let! registrationId = addRegistrationWith dataSource "lets-code-2425" slot 3 false
@@ -575,6 +627,7 @@ let tests =
                 |]
                 RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [| "EINA@htlvb.at" |]
             }
             let! registrationId = addRegistration dataSource "lets-code-2425" (DateTime.Today.AddDays(1).AddHours(8))

@@ -37,6 +37,11 @@ const addEvent = (createEventUrl: string, template?: DataTransfer.Event) => {
     slots: template?.slots ?? [],
     registrationConfirmationMail: template?.registrationConfirmationMail ?? { subject: '', contentTemplate: '' },
     requestConfirmationMail: template?.requestConfirmationMail ?? null,
+    registrationFields: template?.registrationFields ?? [
+      { key: 'FullName', label: 'Name', type: 'text', validator: 'notEmpty' },
+      { key: 'MailAddress', label: 'E-Mail-Adresse', type: 'mail', validator: 'notEmpty' },
+      { key: 'PhoneNumber', label: 'Telefonnummer', type: 'phone', validator: 'notEmpty' },
+    ],
     url: createEventUrl,
     publicRegistrationUrl: '',
     canDelete: false,
@@ -44,6 +49,7 @@ const addEvent = (createEventUrl: string, template?: DataTransfer.Event) => {
     canAddSlot: true,
     canEditSlot: true,
     canDeleteSlot: true,
+    canEditRegistrationFields: true,
     canViewRegistrations: false,
   }
 }

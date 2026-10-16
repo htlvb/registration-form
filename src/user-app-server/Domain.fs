@@ -70,6 +70,22 @@ type MailTemplate = {
     Subject: string
     ContentTemplate: string
 }
+
+type RegistrationFieldType =
+    | TextField
+    | MailField
+    | PhoneField
+type RegistrationFieldValidator =
+    | NoValidation
+    | NotEmpty
+type RegistrationField = {
+    /// e.g. used as placeholder in mail templates
+    Key: string
+    Label: string
+    Type: RegistrationFieldType
+    Validator: RegistrationFieldValidator
+}
+
 type EventData = {
     Key: string
     Title: string
@@ -78,6 +94,7 @@ type EventData = {
     Slots: SlotData[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    RegistrationFields: RegistrationField[]
 }
 type HiddenEventData = {
     Title: string
@@ -90,6 +107,7 @@ type ReleasedEventData = {
     Slots: Slot[]
     RegistrationConfirmationMail: MailTemplate
     RequestConfirmationMail: MailTemplate option
+    RegistrationFields: RegistrationField[]
 }
 type Event =
     | HiddenEvent of HiddenEventData
@@ -113,42 +131,43 @@ module Event =
                     |> Array.sortBy _.StartTime
                 RegistrationConfirmationMail = eventData.RegistrationConfirmationMail
                 RequestConfirmationMail = eventData.RequestConfirmationMail
+                RegistrationFields = eventData.RegistrationFields
             }
 
 type PositiveInteger = private PositiveInteger of int with
     member this.Value = let (PositiveInteger v) = this in v
     static member TryCreate v = if v > 0 then Some (PositiveInteger v) else None
 
-type SubscriberName = private SubscriberName of string with
-    member this.Value = let (SubscriberName v) = this in v
-    static member TryCreate v =
-        if not <| String.IsNullOrWhiteSpace v && v.Length < 100 then
-            Some (SubscriberName v)
-        else None
+module RegistrationField =
+    let private isMailAddress (v: string) =
+        try
+            Net.Mail.MailAddress v |> ignore
+            true
+        with _ -> false
 
-type MailAddress = private MailAddress of string with
-    member this.Value = let (MailAddress v) = this in v
-    static member TryCreate v =
-        let canParse =
-            try
-                Net.Mail.MailAddress v |> ignore
-                true
-            with _ -> false
-        if canParse && v.Length <= 100 then Some (MailAddress v)
-        else None
+    let isValidValue (field: RegistrationField) (value: string) =
+        let isEmpty = String.IsNullOrWhiteSpace value
+        value.Length <= 100 &&
+        (field.Validator <> NotEmpty || not isEmpty) &&
+        (field.Type <> MailField || isEmpty || isMailAddress value)
 
-type PhoneNumber = private PhoneNumber of string with
-    member this.Value = let (PhoneNumber v) = this in v
-    static member TryCreate v =
-        if not <| String.IsNullOrWhiteSpace v && v.Length < 100 then
-            Some (PhoneNumber v)
-        else None
+/// values of registration fields, validated against the fields of an event
+type SubscriberData = private SubscriberData of Map<string, string> with
+    member this.Value = let (SubscriberData v) = this in v
+    /// keys of invalid fields as error, values of unknown fields are dropped
+    static member TryCreate (fields: RegistrationField[]) (data: Map<string, string>) =
+        let values = [
+            for field in fields ->
+                let value = data |> Map.tryFind field.Key |> Option.defaultValue "" |> _.Trim()
+                field, value
+        ]
+        match values |> List.filter (fun (field, value) -> not (RegistrationField.isValidValue field value)) with
+        | [] -> Ok (SubscriberData (values |> List.map (fun (field, value) -> field.Key, value) |> Map.ofList))
+        | invalidValues -> Error (invalidValues |> List.map (fst >> _.Key))
 
 type Subscriber = {
     Quantity: PositiveInteger
-    Name: SubscriberName
-    MailAddress: MailAddress
-    PhoneNumber: PhoneNumber
+    Data: SubscriberData
 }
 
 type BookingData = {
@@ -164,9 +183,7 @@ type BookingValidationError =
     | SlotNotFound
     | SlotUnavailable of Slot
     | InvalidSubscriptionQuantity
-    | InvalidSubscriberName
-    | InvalidMailAddress
-    | InvalidPhoneNumber
+    | InvalidRegistrationField of key: string
     | MaxQuantityPerBookingExceeded
 type BookingError =
     | CapacityExceeded of remainingCapacity: int

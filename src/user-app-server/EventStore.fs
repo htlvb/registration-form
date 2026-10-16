@@ -2,6 +2,7 @@ namespace HTLVB.RegistrationForm.Server
 
 open Dapper
 open System
+open System.Text.Json
 open Npgsql
 
 type DbEventSlot = {
@@ -24,6 +25,30 @@ module DbEventSlot =
             CanRequestIfFullyBooked = dbEventSlot.can_request_if_fully_booked
         }
 
+type DbRegistrationField = {
+    key: string
+    label: string
+    ``type``: string
+    validator: string
+}
+module DbRegistrationField =
+    let toDomain (v: DbRegistrationField) : Domain.RegistrationField =
+        {
+            Key = v.key
+            Label = v.label
+            Type =
+                match v.``type`` with
+                | "text" -> Domain.TextField
+                | "mail" -> Domain.MailField
+                | "phone" -> Domain.PhoneField
+                | v -> failwith $"Unknown registration field type \"%s{v}\""
+            Validator =
+                match v.validator with
+                | "none" -> Domain.NoValidation
+                | "notEmpty" -> Domain.NotEmpty
+                | v -> failwith $"Unknown registration field validator \"%s{v}\""
+        }
+
 type DbEvent = {
     key: string
     title: string
@@ -33,6 +58,7 @@ type DbEvent = {
     registration_confirmation_mail_content_template: string
     request_confirmation_mail_subject: string
     request_confirmation_mail_content_template: string
+    registration_fields: string
 }
 
 module DbEvent =
@@ -51,6 +77,9 @@ module DbEvent =
                 match Option.ofObj dbEvent.request_confirmation_mail_subject, Option.ofObj dbEvent.request_confirmation_mail_content_template with
                 | Some subject, Some contentTemplate -> Some { Subject = subject; ContentTemplate = contentTemplate }
                 | _ -> None
+            RegistrationFields =
+                JsonSerializer.Deserialize<DbRegistrationField[]>(dbEvent.registration_fields)
+                |> Array.map DbRegistrationField.toDomain
         }
 
 type IEventStore =
@@ -62,7 +91,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
     interface IEventStore with
         member _.TryGetEvent eventKey = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, registration_fields FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
             match Seq.toList dbEvents with
             | [ dbEvent ] ->
                 let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
@@ -76,14 +105,12 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             let! remainingCapacity = connection.QuerySingleAsync<Nullable<int>>("SELECT remaining_capacity FROM event_slot WHERE event_key = @EventKey AND time = @Time FOR UPDATE", {| EventKey = bookingData.EventKey; Time = bookingData.SlotTime |}, tx) |> Async.AwaitTask
             let insertRegistration = async {
                 do! connection.ExecuteAsync(
-                        "INSERT INTO event_registration (event_key, time, is_request, quantity, name, mail_address, phone_number, time_stamp) VALUES (@EventKey, @Time, FALSE, @Quantity, @Name, @MailAddress, @PhoneNumber, @Timestamp)",
+                        "INSERT INTO event_registration (event_key, time, is_request, quantity, data, time_stamp) VALUES (@EventKey, @Time, FALSE, @Quantity, @Data::jsonb, @Timestamp)",
                         {|
                             EventKey = bookingData.EventKey
                             Time = bookingData.SlotTime
                             Quantity = bookingData.Subscriber.Quantity.Value
-                            Name = bookingData.Subscriber.Name.Value
-                            MailAddress = bookingData.Subscriber.MailAddress.Value
-                            PhoneNumber = bookingData.Subscriber.PhoneNumber.Value
+                            Data = JsonSerializer.Serialize bookingData.Subscriber.Data.Value
                             Timestamp = bookingData.Timestamp
                         |},
                         tx
@@ -106,14 +133,12 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
         member _.AddBookingRequest bookingData = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
             do! connection.ExecuteAsync(
-                    "INSERT INTO event_registration (event_key, time, is_request, quantity, name, mail_address, phone_number, time_stamp) VALUES (@EventKey, @Time, TRUE, @Quantity, @Name, @MailAddress, @PhoneNumber, @Timestamp)",
+                    "INSERT INTO event_registration (event_key, time, is_request, quantity, data, time_stamp) VALUES (@EventKey, @Time, TRUE, @Quantity, @Data::jsonb, @Timestamp)",
                     {|
                         EventKey = bookingData.EventKey
                         Time = bookingData.SlotTime
                         Quantity = bookingData.Subscriber.Quantity.Value
-                        Name = bookingData.Subscriber.Name.Value
-                        MailAddress = bookingData.Subscriber.MailAddress.Value
-                        PhoneNumber = bookingData.Subscriber.PhoneNumber.Value
+                        Data = JsonSerializer.Serialize bookingData.Subscriber.Data.Value
                         Timestamp = bookingData.Timestamp
                     |}
                 )

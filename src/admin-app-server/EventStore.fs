@@ -27,6 +27,48 @@ module DbEventSlot =
             CanRequestIfFullyBooked = dbEventSlot.can_request_if_fully_booked
         }
 
+type DbRegistrationField = {
+    key: string
+    label: string
+    ``type``: string
+    validator: string
+}
+module DbRegistrationField =
+    let toDomain (v: DbRegistrationField) : Domain.RegistrationField =
+        {
+            Key = v.key
+            Label = v.label
+            Type =
+                match v.``type`` with
+                | "text" -> Domain.TextField
+                | "mail" -> Domain.MailField
+                | "phone" -> Domain.PhoneField
+                | v -> failwith $"Unknown registration field type \"%s{v}\""
+            Validator =
+                match v.validator with
+                | "none" -> Domain.NoValidation
+                | "notEmpty" -> Domain.NotEmpty
+                | v -> failwith $"Unknown registration field validator \"%s{v}\""
+        }
+    let fromDomain (v: Domain.RegistrationField) : DbRegistrationField =
+        {
+            key = v.Key
+            label = v.Label
+            ``type`` =
+                match v.Type with
+                | Domain.TextField -> "text"
+                | Domain.MailField -> "mail"
+                | Domain.PhoneField -> "phone"
+            validator =
+                match v.Validator with
+                | Domain.NoValidation -> "none"
+                | Domain.NotEmpty -> "notEmpty"
+        }
+    let serialize (fields: Domain.RegistrationField[]) =
+        fields |> Array.map fromDomain |> JsonSerializer.Serialize
+    let deserialize (json: string) =
+        JsonSerializer.Deserialize<DbRegistrationField[]>(json) |> Array.map toDomain
+
 type DbEvent = {
     key: string
     title: string
@@ -36,6 +78,7 @@ type DbEvent = {
     registration_confirmation_mail_content_template: string
     request_confirmation_mail_subject: string
     request_confirmation_mail_content_template: string
+    registration_fields: string
     editor_ids: string
 }
 
@@ -55,6 +98,7 @@ module DbEvent =
                 match Option.ofObj dbEvent.request_confirmation_mail_subject, Option.ofObj dbEvent.request_confirmation_mail_content_template with
                 | Some subject, Some contentTemplate -> Some { Subject = subject; ContentTemplate = contentTemplate }
                 | _ -> None
+            RegistrationFields = DbRegistrationField.deserialize dbEvent.registration_fields
             EditorIds = JsonSerializer.Deserialize(dbEvent.editor_ids)
         }
 
@@ -63,9 +107,7 @@ type DbEventRegistration = {
     event_key: string
     time: DateTime
     quantity: int
-    name: string
-    mail_address: string
-    phone_number: string
+    data: string
     time_stamp: DateTime
     is_request: bool
     deregistration_time: Nullable<DateTime>
@@ -77,9 +119,7 @@ module DbEventRegistration =
             EventKey = dbEventRegistration.event_key
             Time = dbEventRegistration.time
             Quantity = dbEventRegistration.quantity
-            Name = dbEventRegistration.name
-            MailAddress = dbEventRegistration.mail_address
-            PhoneNumber = dbEventRegistration.phone_number
+            Data = JsonSerializer.Deserialize<Map<string, string>>(dbEventRegistration.data)
             Timestamp = dbEventRegistration.time_stamp
             IsRequest = dbEventRegistration.is_request
             DeregistrationTime = Option.ofNullable dbEventRegistration.deregistration_time
@@ -194,12 +234,14 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                     ("request_confirmation_mail_subject", v.Subject)
                     ("request_confirmation_mail_content_template", v.ContentTemplate)
                 | None -> ()
+                ("registration_fields", DbRegistrationField.serialize event.RegistrationFields)
                 ("editor_ids", JsonSerializer.Serialize event.EditorIds)
             ]
             let fieldNames = fields |> List.map fst |> String.concat ", "
             let paramNames =
                 fields
                 |> List.map (function
+                    | ("registration_fields", _) -> "@registration_fields::jsonb"
                     | ("editor_ids", _) -> "@editor_ids::jsonb"
                     | (name, _) -> $"@%s{name}"
                 )
@@ -220,7 +262,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
         member _.GetEvents () = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, editor_ids FROM event") |> Async.AwaitTask
+            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, registration_fields, editor_ids FROM event") |> Async.AwaitTask
             let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = ANY(@EventKeys)", {| EventKeys = dbEvents |> Seq.map _.key |> Seq.toArray |}) |> Async.AwaitTask
             let dbEventSlotMap = dbEventSlots |> Seq.groupBy _.event_key |> Map.ofSeq
             return
@@ -234,7 +276,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
         member _.TryGetEvent eventKey = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, editor_ids FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+            let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, registration_fields, editor_ids FROM event WHERE key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
             match Seq.tryExactlyOne dbEvents with
             | None -> return None
             | Some dbEvent ->
@@ -276,10 +318,18 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                     ("request_confirmation_mail_subject", null)
                     ("request_confirmation_mail_content_template", null)
                 | None -> ()
+
+                match data.RegistrationFields with
+                | Some v -> ("registration_fields", DbRegistrationField.serialize v)
+                | None -> ()
             ]
             if not (List.isEmpty updateData) then
                 let updateFields =
-                    [ for (name, _value) in updateData -> $"{name}=@{name}" ]
+                    [
+                        for (name, _value) in updateData ->
+                            if name = "registration_fields" then $"{name}=@{name}::jsonb"
+                            else $"{name}=@{name}"
+                    ]
                     |> String.concat ", "
                 let parameters =
                     let p = DynamicParameters()
@@ -304,13 +354,13 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
 
         member _.GetAllEventRegistrations () = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration ORDER BY time_stamp") |> Async.AwaitTask
+            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, data, time_stamp, is_request, deregistration_time FROM event_registration ORDER BY time_stamp") |> Async.AwaitTask
             return result |> Seq.map DbEventRegistration.toDomain |> Seq.toList
         }
 
         member _.GetEventRegistrations eventKey time = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = time |}) |> Async.AwaitTask
+            let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, data, time_stamp, is_request, deregistration_time FROM event_registration WHERE event_key = @EventKey AND time = @Time", {| EventKey = eventKey; Time = time |}) |> Async.AwaitTask
             return result |> Seq.map DbEventRegistration.toDomain |> Seq.toList
         }
 
@@ -319,7 +369,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             | (false, _) -> return None // ids are integers in the db
             | (true, registrationId) ->
                 use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-                let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, name, mail_address, phone_number, time_stamp, is_request, deregistration_time FROM event_registration WHERE id = @RegistrationId", {| RegistrationId = registrationId |}) |> Async.AwaitTask
+                let! result = connection.QueryAsync<DbEventRegistration>("SELECT id, event_key, time, quantity, data, time_stamp, is_request, deregistration_time FROM event_registration WHERE id = @RegistrationId", {| RegistrationId = registrationId |}) |> Async.AwaitTask
                 return result |> Seq.tryExactlyOne |> Option.map DbEventRegistration.toDomain
         }
 
@@ -403,6 +453,7 @@ type InMemoryEventStore(events) =
                     ContentTemplate = "Vielen Dank für Ihre Anmeldung."
                 }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [||]
             }
 
@@ -434,6 +485,7 @@ type InMemoryEventStore(events) =
                     ContentTemplate = "Vielen Dank für Ihre Anmeldung."
                 }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [||]
             }
 
@@ -465,6 +517,7 @@ type InMemoryEventStore(events) =
                     ContentTemplate = "Vielen Dank für Ihre Anmeldung."
                 }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [||]
             }
 
@@ -496,6 +549,7 @@ type InMemoryEventStore(events) =
                     ContentTemplate = "Vielen Dank für Ihre Anmeldung."
                 }
                 RequestConfirmationMail = None
+                RegistrationFields = Domain.RegistrationField.defaultFields
                 EditorIds = [||]
             }
         ]

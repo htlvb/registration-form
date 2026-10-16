@@ -8,7 +8,8 @@ INSERT INTO event (
         reservation_start_time,
         registration_confirmation_mail_subject,
         registration_confirmation_mail_content_template,
-        editor_ids
+        editor_ids,
+        registration_fields
     )
     VALUES (
         'schulfuehrungen-2025',
@@ -24,7 +25,12 @@ Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir Sie außerde
 Antworten Sie dafür auf diese E-Mail bzw. kontaktieren Sie uns telefonisch unter 07672/24605.
 
 Wir freuen uns, Sie bei uns begrüßen zu dürfen.',
-        '[]'::jsonb
+        '[]'::jsonb,
+        '[
+            {"key": "FullName", "label": "Name", "type": "text", "validator": "notEmpty"},
+            {"key": "MailAddress", "label": "E-Mail-Adresse", "type": "mail", "validator": "notEmpty"},
+            {"key": "PhoneNumber", "label": "Telefonnummer", "type": "phone", "validator": "notEmpty"}
+        ]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('schulfuehrungen-2025', '2025-01-28 14:00:00', NULL, 15, FALSE),
@@ -46,7 +52,8 @@ INSERT INTO event (
         registration_confirmation_mail_content_template,
         request_confirmation_mail_subject,
         request_confirmation_mail_content_template,
-        editor_ids
+        editor_ids,
+        registration_fields
     )
     VALUES (
         'lets-code-2425',
@@ -75,7 +82,12 @@ Zu dem Zeitpunkt sind leider keine Plätze mehr frei.
 Wir melden uns aber bei dir, um gemeinsam eine Lösung zu finden.
 
 Wir freuen uns auf dich.',
-        '[]'::jsonb
+        '[]'::jsonb,
+        '[
+            {"key": "FullName", "label": "Name", "type": "text", "validator": "notEmpty"},
+            {"key": "MailAddress", "label": "E-Mail-Adresse", "type": "mail", "validator": "notEmpty"},
+            {"key": "PhoneNumber", "label": "Telefonnummer", "type": "phone", "validator": "notEmpty"}
+        ]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('lets-code-2425', '2024-12-17 14:00:00', '2 hours 30 minutes', 1, 20, TRUE),
@@ -93,7 +105,8 @@ INSERT INTO event (
         registration_confirmation_mail_content_template,
         request_confirmation_mail_subject,
         request_confirmation_mail_content_template,
-        editor_ids
+        editor_ids,
+        registration_fields
     )
     VALUES (
         'lets-code-2627',
@@ -122,7 +135,12 @@ Zu dem Zeitpunkt sind leider keine Plätze mehr frei.
 Wir melden uns aber bei dir, um gemeinsam eine Lösung zu finden.
 
 Wir freuen uns auf dich.',
-        '[]'::jsonb
+        '[]'::jsonb,
+        '[
+            {"key": "FullName", "label": "Name", "type": "text", "validator": "notEmpty"},
+            {"key": "MailAddress", "label": "E-Mail-Adresse", "type": "mail", "validator": "notEmpty"},
+            {"key": "PhoneNumber", "label": "Telefonnummer", "type": "phone", "validator": "notEmpty"}
+        ]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, duration, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('lets-code-2627', '2026-12-17 14:00:00', '2 hours 30 minutes', 1, 20, TRUE),
@@ -138,7 +156,8 @@ INSERT INTO event (
         reservation_start_time,
         registration_confirmation_mail_subject,
         registration_confirmation_mail_content_template,
-        editor_ids
+        editor_ids,
+        registration_fields
     )
     VALUES (
         'schulfuehrungen-2027',
@@ -154,7 +173,12 @@ Bei Änderungswünschen oder im Falle einer Verhinderung bitten wir Sie außerde
 Antworten Sie dafür auf diese E-Mail bzw. kontaktieren Sie uns telefonisch unter 07672/24605.
 
 Wir freuen uns, Sie bei uns begrüßen zu dürfen.',
-        '[]'::jsonb
+        '[]'::jsonb,
+        '[
+            {"key": "FullName", "label": "Name", "type": "text", "validator": "notEmpty"},
+            {"key": "MailAddress", "label": "E-Mail-Adresse", "type": "mail", "validator": "notEmpty"},
+            {"key": "PhoneNumber", "label": "Telefonnummer", "type": "phone", "validator": "notEmpty"}
+        ]'::jsonb
     );
 INSERT INTO event_slot (event_key, time, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked) VALUES
     ('schulfuehrungen-2027', '2027-01-28 14:00:00', NULL, 15, FALSE),
