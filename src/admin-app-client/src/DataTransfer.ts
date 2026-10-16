@@ -6,6 +6,7 @@ export type Slot = {
   remainingCapacity: number | null
   canRequestIfFullyBooked: boolean
   registrations: EventRegistration[]
+  canEdit: 'open' | 'timesLocked' | 'locked'
 }
 
 export type RegistrationField = {
@@ -43,7 +44,6 @@ export type Event = {
   canDelete: boolean
   canEditEventData: boolean
   canAddSlot: boolean
-  canEditSlot: boolean
   canDeleteSlot: boolean
   canEditRegistrationFields: boolean
   canViewRegistrations: boolean

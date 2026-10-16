@@ -60,7 +60,7 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
                 eventsWithRegistrationAuthorization
                 |> Array.map (fun (eventData, isAllowedToViewRegistrations) ->
                     let event = Domain.Event.fromEventData timeProvider eventData
-                    DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) getRegistrationUrl (getSlotRegistrations eventData.Key) isAllowedToViewRegistrations event
+                    DtoMapping.Event.fromDomain (timeProvider.GetLocalNow().DateTime) (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) getRegistrationUrl (getSlotRegistrations eventData.Key) isAllowedToViewRegistrations event
                 )
             CreateEventUrl = if createEventAuthorization.Succeeded then Some (this.Url.Action(nameof(this.CreateEvent))) else None
         |}
@@ -91,10 +91,9 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         | EventNotFound -> return this.NotFound() :> IActionResult
         | EventAuthorizationFailed _ -> return this.Unauthorized()
         | EventAuthorizationSucceeded event ->
-            let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
             match DtoMapping.PatchEventData.tryToDomain data with
             | None -> return this.BadRequest()
-            | Some update when not (Domain.EventPermissions.allowsUpdate update permissions) -> return this.BadRequest()
+            | Some update when not (Domain.EventPermissions.allowsUpdate (timeProvider.GetLocalNow().DateTime) (Domain.Event.fromEventData timeProvider event) update) -> return this.BadRequest()
             | Some update when not (Domain.SlotUpdate.createsOnlyFutureSlots (timeProvider.GetLocalNow().DateTime) update.Slots) -> return this.BadRequest()
             | Some update when not (Domain.EventData.applyUpdate update event |> Domain.EventData.hasRequiredRequestConfirmationMail) -> return this.BadRequest()
             | Some update when not (update.RegistrationFields |> Option.forall Domain.RegistrationField.isValidFieldList) -> return this.BadRequest()

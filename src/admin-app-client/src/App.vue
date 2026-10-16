@@ -47,7 +47,6 @@ const addEvent = (createEventUrl: string, template?: DataTransfer.Event) => {
     canDelete: false,
     canEditEventData: true,
     canAddSlot: true,
-    canEditSlot: true,
     canDeleteSlot: true,
     canEditRegistrationFields: true,
     canViewRegistrations: false,

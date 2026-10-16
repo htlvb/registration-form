@@ -28,6 +28,8 @@ type Slot = {
     RemainingCapacity: int option
     CanRequestIfFullyBooked: bool
     Registrations: EventRegistration list
+    /// "open", "timesLocked" or "locked"
+    CanEdit: string
 }
 
 type MailTemplate = {
@@ -49,7 +51,6 @@ type Event = {
     CanDelete: bool
     CanEditEventData: bool
     CanAddSlot: bool
-    CanEditSlot: bool
     CanDeleteSlot: bool
     CanEditRegistrationFields: bool
     CanViewRegistrations: bool

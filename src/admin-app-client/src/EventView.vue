@@ -43,6 +43,7 @@ type EditableSlot = {
   remainingCapacity: number
   canRequestIfFullyBooked: boolean
   isNew: boolean
+  canEdit: DataTransfer.Slot['canEdit']
   delete: boolean
 }
 
@@ -87,6 +88,7 @@ const beginEdit = () => {
       remainingCapacity: slot.remainingCapacity || 0,
       canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
       isNew: props.isNew,
+      canEdit: props.isNew ? 'open' : slot.canEdit,
       delete: false,
     })),
     // copies, so that editing doesn't change the event
@@ -129,6 +131,7 @@ const addSlot = () => {
     remainingCapacity: 0,
     canRequestIfFullyBooked: false,
     isNew: true,
+    canEdit: 'open',
     delete: false,
   })
 }
@@ -237,10 +240,10 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
   if (slot.delete) {
     return [{ type: 'delete', startTime: original.startTime }]
   }
-  if (!props.event.canEditSlot) return []
+  if (slot.canEdit === 'locked') return []
 
-  const setTime = !DateTime.isSameTime(slot.startTime, original.startTime)
-  const setDuration = getDurationMilliseconds(duration) !== getDurationMilliseconds(original.duration)
+  const setTime = slot.canEdit === 'open' && !DateTime.isSameTime(slot.startTime, original.startTime)
+  const setDuration = slot.canEdit === 'open' && getDurationMilliseconds(duration) !== getDurationMilliseconds(original.duration)
   const setClosingDate = closingDate === null || original.closingDate === null ? closingDate !== original.closingDate : !DateTime.isSameTime(closingDate, original.closingDate)
   const setMaxQuantityPerBooking = maxQuantityPerBooking !== original.maxQuantityPerBooking
   const setRemainingCapacity = remainingCapacity !== original.remainingCapacity
@@ -372,7 +375,7 @@ const deleteEvent = async () => {
         </a>
       </span>
       <span v-else>
-        <a v-if="event.canEditEventData || event.canAddSlot || event.canEditSlot || event.canDeleteSlot"
+        <a v-if="event.canEditEventData || event.canAddSlot || event.slots.some(v => v.canEdit !== 'locked') || event.canDeleteSlot"
           class="p-2 cursor-pointer"
           title="Bearbeiten"
           @click="beginEdit">
@@ -413,8 +416,9 @@ const deleteEvent = async () => {
       <div class="flex flex-col gap-1">
         <span class="text-sm">Slots</span>
         <ol class="flex flex-wrap gap-2 items-stretch">
-          <template v-if="editEvent === undefined || !event.canEditSlot">
-            <li v-for="slot in event.slots" :key="JSON.stringify(slot)" class="border rounded p-4 flex flex-col">
+          <!-- slots that can't be edited are shown read-only while editing -->
+          <template v-for="slot in event.slots" :key="JSON.stringify(slot)">
+            <li v-if="editEvent === undefined || (!isNew && slot.canEdit === 'locked')" class="border rounded p-4 flex flex-col">
               <div class="flex gap-2">
                 <span class="grow rounded bg-blue-htlvb/50 -mx-2 px-2">{{ DateTime.format(new Date(slot.startTime)) }}</span>
                 <a v-if="event.canDeleteSlot" class="p-2 cursor-pointer" title="Löschen">
@@ -429,19 +433,19 @@ const deleteEvent = async () => {
             </li>
           </template>
           <template v-if="editEvent !== undefined">
-            <li v-for="slot in editEvent.slots.filter(v => event.canEditSlot || v.isNew)" :key="slot.id" class="border rounded p-4 flex flex-col gap-2" :class="{ 'bg-rose-400/10': slot.delete }">
+            <li v-for="slot in editEvent.slots.filter(v => v.canEdit !== 'locked')" :key="slot.id" class="border rounded p-4 flex flex-col gap-2" :class="{ 'bg-rose-400/10': slot.delete }">
               <div class="flex items-center gap-2">
-                <input type="datetime-local" v-model="slot.startTime" class="grow input-text bg-blue-htlvb/50" />
+                <input type="datetime-local" v-model="slot.startTime" class="grow input-text bg-blue-htlvb/50" :disabled="slot.canEdit === 'timesLocked'" :title="slot.canEdit !== 'timesLocked' ? undefined : 'Die Zeit kann nicht mehr geändert werden, weil die Registrierung bereits begonnen hat.'" />
                 <a v-if="event.canDeleteSlot || slot.isNew" class="p-2 cursor-pointer" :class="{ 'text-rose-400': slot.delete }" title="Löschen" @click="deleteSlot(slot)">
                   <i class="fa-solid fa-trash-can"></i>
                 </a>
               </div>
               <div class="flex flex-col gap-1">
                 <label class="flex gap-2">
-                  <input type="checkbox" v-model="slot.hasDuration" />
+                  <input type="checkbox" v-model="slot.hasDuration" :disabled="slot.canEdit === 'timesLocked'" />
                   <span class="text-sm">Ende:</span>
                 </label>
-                <input type="datetime-local" v-model="slot.endTime" class="input-text" :disabled="!slot.hasDuration" />
+                <input type="datetime-local" v-model="slot.endTime" class="input-text" :disabled="!slot.hasDuration || slot.canEdit === 'timesLocked'" />
               </div>
               <div class="flex flex-col gap-1">
                 <label class="flex gap-2">

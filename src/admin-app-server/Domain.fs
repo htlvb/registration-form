@@ -151,11 +151,24 @@ module EventData =
         event.RequestConfirmationMail.IsSome ||
         event.Slots |> Array.forall (fun v -> not v.CanRequestIfFullyBooked)
 
+type SlotEditPermission =
+    | SlotOpen
+    /// everything except start and end time can be edited
+    | SlotTimesLocked
+    | SlotLocked
+module SlotEditPermission =
+    let fromSlot (now: DateTime) event (slot: Slot) =
+        match event with
+        | DraftEvent _ -> SlotOpen
+        // slot time can't change once there might be registrations for it
+        | ReleasedEvent _ when Slot.isInFuture now slot -> SlotTimesLocked
+        | ReleasedEvent _
+        | ArchivedEvent _ -> SlotLocked
+
 type EventPermissions = {
     CanDelete: bool
     CanEditEventData: bool
     CanAddSlot: bool
-    CanEditSlot: bool
     CanDeleteSlot: bool
     CanEditRegistrationFields: bool
     CanViewRegistrations: bool
@@ -163,11 +176,15 @@ type EventPermissions = {
 module EventPermissions =
     let fromEvent = function
         // registration fields can't change once there might be registrations
-        | DraftEvent _ -> { CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanEditSlot = true; CanDeleteSlot = true; CanEditRegistrationFields = true; CanViewRegistrations = false }
-        | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanEditSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
-        | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanEditSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
+        | DraftEvent _ -> { CanDelete = true; CanEditEventData = true; CanAddSlot = true; CanDeleteSlot = true; CanEditRegistrationFields = true; CanViewRegistrations = false }
+        | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
+        | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
 
-    let allowsUpdate (update: EventUpdateData) permissions =
+    let allowsUpdate (now: DateTime) (event: Event) (update: EventUpdateData) =
+        let permissions = fromEvent event
+        let eventData =
+            match event with
+            | DraftEvent v | ReleasedEvent v | ArchivedEvent v -> v
         let changesEventData =
             update.Key.IsSome ||
             update.Title.IsSome ||
@@ -177,7 +194,14 @@ module EventPermissions =
             update.RequestConfirmationMail.IsSome
         let allowsSlotUpdate = function
             | CreateSlot _ -> permissions.CanAddSlot
-            | UpdateSlot _ -> permissions.CanEditSlot
+            | UpdateSlot (time, data) ->
+                match eventData.Slots |> Array.tryFind (fun v -> v.Time = time) with
+                | Some slot ->
+                    match SlotEditPermission.fromSlot now event slot with
+                    | SlotOpen -> true
+                    | SlotTimesLocked -> data.Time.IsNone && data.Duration.IsNone
+                    | SlotLocked -> false
+                | None -> false
             | DeleteSlot _ -> permissions.CanDeleteSlot
         (not changesEventData || permissions.CanEditEventData) &&
         (update.RegistrationFields.IsNone || permissions.CanEditRegistrationFields) &&

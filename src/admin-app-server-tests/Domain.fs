@@ -86,4 +86,26 @@ let tests =
             Expect.equal updatedEvent.Slots [| slot time false |] "Slot should have been replaced"
             Expect.isTrue (Domain.EventData.hasRequiredRequestConfirmationMail updatedEvent) "Updated event should be valid"
         }
+    
+        test "Slots of active event can be updated before they start, except for their start and end time" {
+            let now = DateTime.Today
+            let pastSlot = slot (now.AddHours -1.) false
+            let futureSlot = slot (now.AddDays 1.) false
+            let event = Domain.ReleasedEvent { event with ReservationStartTime = now.AddDays -1.; Slots = [| pastSlot; futureSlot |] }
+            let noSlotUpdate : Domain.SlotUpdateData = { Time = None; Duration = None; ClosingDate = None; MaxQuantityPerBooking = None; RemainingCapacity = None; CanRequestIfFullyBooked = None }
+            let updateSlot time data = { noUpdate with Slots = [| Domain.UpdateSlot (time, data) |] }
+            let allowsUpdate = Domain.EventPermissions.allowsUpdate now event
+            Expect.isTrue (allowsUpdate (updateSlot futureSlot.Time { noSlotUpdate with RemainingCapacity = Some (Some 10) })) "Updating capacity of future slot should be allowed"
+            Expect.isFalse (allowsUpdate (updateSlot futureSlot.Time { noSlotUpdate with Time = Some (now.AddDays 2.) })) "Updating time of future slot should not be allowed"
+            Expect.isFalse (allowsUpdate (updateSlot futureSlot.Time { noSlotUpdate with Duration = Some (Some (TimeSpan.FromHours 1.)) })) "Updating end time of future slot should not be allowed"
+            Expect.isFalse (allowsUpdate (updateSlot pastSlot.Time { noSlotUpdate with RemainingCapacity = Some (Some 10) })) "Updating started slot should not be allowed"
+            Expect.isFalse (allowsUpdate (updateSlot (now.AddDays 3.) { noSlotUpdate with RemainingCapacity = Some (Some 10) })) "Updating unknown slot should not be allowed"
+        }
+
+        test "Slots of draft event can be updated completely" {
+            let now = DateTime.Today
+            let event = Domain.DraftEvent { event with ReservationStartTime = now.AddDays 1. }
+            let update = { noUpdate with Slots = [| Domain.UpdateSlot (DateTime.Today.AddDays 1., { Time = Some (now.AddDays 2.); Duration = None; ClosingDate = None; MaxQuantityPerBooking = None; RemainingCapacity = Some (Some 10); CanRequestIfFullyBooked = None }) |] }
+            Expect.isTrue (Domain.EventPermissions.allowsUpdate now event update) "Updating slot of draft event should be allowed"
+        }
     ]

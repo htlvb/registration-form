@@ -50,7 +50,7 @@ module EventRegistrations =
         }
 
 module Slot =
-    let fromDomain (registrations: DataTransfer.EventRegistration list) (slot: Domain.Slot) : DataTransfer.Slot = {
+    let fromDomain (registrations: DataTransfer.EventRegistration list) (editPermission: Domain.SlotEditPermission) (slot: Domain.Slot) : DataTransfer.Slot = {
         StartTime = slot.Time
         Duration = slot.Duration
         ClosingDate = slot.ClosingDate
@@ -58,6 +58,11 @@ module Slot =
         RemainingCapacity = slot.RemainingCapacity
         CanRequestIfFullyBooked = slot.CanRequestIfFullyBooked
         Registrations = registrations
+        CanEdit =
+            match editPermission with
+            | Domain.SlotOpen -> "open"
+            | Domain.SlotTimesLocked -> "timesLocked"
+            | Domain.SlotLocked -> "locked"
     }
 
 module MailTemplate =
@@ -72,7 +77,7 @@ module MailTemplate =
     }
 
 module Event =
-    let fromDomain eventUrl publicRegistrationUrl getRegistrationUrl getSlotRegistrations isAllowedToViewRegistrations event : DataTransfer.Event =
+    let fromDomain now eventUrl publicRegistrationUrl getRegistrationUrl getSlotRegistrations isAllowedToViewRegistrations event : DataTransfer.Event =
         let eventType, data =
             match event with
             | Domain.DraftEvent v -> "draft", v
@@ -84,7 +89,7 @@ module Event =
             let registrations =
                 if canViewRegistrations then getSlotRegistrations slot |> List.map (fun v -> EventRegistrations.fromDomain (getRegistrationUrl v) v)
                 else []
-            Slot.fromDomain registrations slot
+            Slot.fromDomain registrations (Domain.SlotEditPermission.fromSlot now event slot) slot
         {
             Type = eventType
             Key = data.Key
@@ -100,7 +105,6 @@ module Event =
             CanDelete = permissions.CanDelete
             CanEditEventData = permissions.CanEditEventData
             CanAddSlot = permissions.CanAddSlot
-            CanEditSlot = permissions.CanEditSlot
             CanDeleteSlot = permissions.CanDeleteSlot
             CanEditRegistrationFields = permissions.CanEditRegistrationFields
             CanViewRegistrations = canViewRegistrations
