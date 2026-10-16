@@ -89,6 +89,20 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
                 return this.Ok()
     }
 
+    [<HttpDelete("{eventKey}")>]
+    member _.DeleteEvent(eventKey: string) = async {
+        match! checkEventAuthorization eventKey "UpdateEvent" with
+        | EventNotFound -> return this.NotFound() :> IActionResult
+        | EventAuthorizationFailed _ -> return this.Unauthorized()
+        | EventAuthorizationSucceeded event ->
+            let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
+            if not permissions.CanDelete then
+                return this.BadRequest()
+            else
+                do! eventStore.DeleteEvent event.Key
+                return this.Ok()
+    }
+
     [<HttpGet("{eventKey}/{slot}/registrations")>]
     member _.GetEventSlotRegistrations (eventKey: string) (slot: string) = async {
         match! checkEventAuthorization eventKey "ReadEventRegistrations" with

@@ -265,10 +265,24 @@ const saveEvent = async () => {
 }
 
 const isMarkedForDeletion = ref(false)
-const deleteEvent = () => {
+const isDeleting = ref(false)
+const hasDeletingFailed = ref(false)
+const deleteError = ref<string>()
+const deleteEvent = async () => {
+  if (isDeleting.value) return
   if (!isMarkedForDeletion.value) {
     isMarkedForDeletion.value = true
     return
+  }
+
+  deleteError.value = undefined
+  const result = await uiFetchAuthorized(isDeleting, hasDeletingFailed, props.event.url, { method: 'DELETE' })
+  if (result.succeeded) {
+    emit('eventUpdated')
+  }
+  else {
+    isMarkedForDeletion.value = false
+    deleteError.value = 'Fehler beim Löschen des Events.'
   }
 }
 </script>
@@ -295,7 +309,7 @@ const deleteEvent = () => {
         <a v-else class="p-2 cursor-pointer" title="Details anzeigen" @click="isShowingDetails = !isShowingDetails">
           <i class="fa-solid" :class="{ 'fa-eye': !isShowingDetails, 'fa-eye-slash': isShowingDetails }"></i>
         </a>
-        <a v-if="event.canDelete" class="p-2 cursor-pointer" :class="{ 'text-rose-400': isMarkedForDeletion }" :title="isMarkedForDeletion ? 'Wirklich löschen' : 'Löschen'" @click="deleteEvent">
+        <a v-if="event.canDelete" class="p-2 cursor-pointer" :class="{ 'text-rose-400': isMarkedForDeletion, 'opacity-50 cursor-wait!': isDeleting }" :title="isMarkedForDeletion ? 'Wirklich löschen' : 'Löschen'" @click="deleteEvent">
           <i class="fa-solid fa-trash-can"></i>
         </a>
         <ShareLink :url="event.publicRegistrationUrl" :title="event.title" />
@@ -305,6 +319,7 @@ const deleteEvent = () => {
       </span>
     </div>
     <span v-if="saveError !== undefined" class="text-rose-400">{{ saveError }}</span>
+    <span v-if="deleteError !== undefined" class="text-rose-400">{{ deleteError }}</span>
     <div v-if="isShowingDetails || editEvent !== undefined" class="flex flex-col gap-2">
       <div v-if="isNew && editEvent !== undefined" class="flex flex-col gap-1">
         <span class="text-sm">Schlüssel (Teil der Registrierungs-URL)</span>
