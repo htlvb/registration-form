@@ -146,8 +146,11 @@ const deleteSlot = (slot: EditableSlot) => {
   }
 }
 
+// slots with unlimited capacity are never fully booked
+const getCanRequestIfFullyBooked = (slot: EditableSlot) => slot.hasRemainingCapacity && slot.canRequestIfFullyBooked
+
 // request confirmation mail is needed iff a slot allows requests
-const needsRequestConfirmationMail = (edit: EditableEvent) => edit.slots.some(v => !v.delete && v.canRequestIfFullyBooked)
+const needsRequestConfirmationMail = (edit: EditableEvent) => edit.slots.some(v => !v.delete && getCanRequestIfFullyBooked(v))
 const getRequestConfirmationMail = (edit: EditableEvent) => needsRequestConfirmationMail(edit) ? edit.requestConfirmationMail : null
 
 const registrationFieldTypes: { value: DataTransfer.RegistrationField['type'], label: string }[] = [
@@ -234,7 +237,7 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
       closingDate,
       maxQuantityPerBooking,
       remainingCapacity,
-      canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
+      canRequestIfFullyBooked: getCanRequestIfFullyBooked(slot),
     }]
   }
   if (slot.delete) {
@@ -247,7 +250,8 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
   const setClosingDate = closingDate === null || original.closingDate === null ? closingDate !== original.closingDate : !DateTime.isSameTime(closingDate, original.closingDate)
   const setMaxQuantityPerBooking = maxQuantityPerBooking !== original.maxQuantityPerBooking
   const setRemainingCapacity = remainingCapacity !== original.remainingCapacity
-  const setCanRequestIfFullyBooked = slot.canRequestIfFullyBooked !== original.canRequestIfFullyBooked
+  const canRequestIfFullyBooked = getCanRequestIfFullyBooked(slot)
+  const setCanRequestIfFullyBooked = canRequestIfFullyBooked !== original.canRequestIfFullyBooked
   if (!setTime && !setDuration && !setClosingDate && !setMaxQuantityPerBooking && !setRemainingCapacity && !setCanRequestIfFullyBooked) return []
 
   return [{
@@ -262,7 +266,7 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
     setMaxQuantityPerBooking,
     remainingCapacity,
     setRemainingCapacity,
-    canRequestIfFullyBooked: setCanRequestIfFullyBooked ? slot.canRequestIfFullyBooked : null,
+    canRequestIfFullyBooked: setCanRequestIfFullyBooked ? canRequestIfFullyBooked : null,
   }]
 }
 
@@ -278,7 +282,7 @@ const getNewEvent = (edit: EditableEvent) : DataTransfer.CreateEventData => {
       closingDate: slot.hasClosingDate && slot.closingDate !== undefined ? slot.closingDate : null,
       maxQuantityPerBooking: slot.hasMaxQuantityPerBooking ? slot.maxQuantityPerBooking : null,
       remainingCapacity: slot.hasRemainingCapacity ? slot.remainingCapacity : null,
-      canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
+      canRequestIfFullyBooked: getCanRequestIfFullyBooked(slot),
     })),
     registrationConfirmationMail: edit.registrationConfirmationMail,
     requestConfirmationMail: getRequestConfirmationMail(edit),
@@ -428,8 +432,8 @@ const deleteEvent = async () => {
               <span class="text-sm">Ende: {{ slot.duration !== null ? DateTime.format(DateTime.addTimeSpan(new Date(slot.startTime), slot.duration)) : "keine Angabe" }}</span>
               <span class="text-sm">Anmeldeschluss: {{ slot.closingDate !== null ? DateTime.format(new Date(slot.closingDate)) : "-" }}</span>
               <span class="text-sm">Freie Plätze: {{ slot.remainingCapacity !== null ? slot.remainingCapacity : "unbegrenzt" }}</span>
+              <span v-if="slot.remainingCapacity !== null" class="text-sm">Anfragen wenn ausgebucht: {{ slot.canRequestIfFullyBooked ? "ja" : "nein" }}</span>
               <span class="text-sm">Maximale Personen pro Registrierung: {{ slot.maxQuantityPerBooking !== null ? slot.maxQuantityPerBooking : "unbegrenzt" }}</span>
-              <span class="text-sm">Anfragen wenn ausgebucht: {{ slot.canRequestIfFullyBooked ? "ja" : "nein" }}</span>
             </li>
           </template>
           <template v-if="editEvent !== undefined">
@@ -461,6 +465,11 @@ const deleteEvent = async () => {
                 </label>
                 <input type="number" v-model="slot.remainingCapacity" class="input-text" :disabled="!slot.hasRemainingCapacity" min="0" />
               </div>
+              <!-- not bound with v-model, so that it's shown unchecked, but remembered while capacity is unlimited -->
+              <label class="flex gap-2">
+                <input type="checkbox" :checked="getCanRequestIfFullyBooked(slot)" :disabled="!slot.hasRemainingCapacity" @change="slot.canRequestIfFullyBooked = ($event.target as HTMLInputElement).checked" />
+                <span class="text-sm">Anfragen möglich, wenn ausgebucht</span>
+              </label>
               <div class="flex flex-col gap-1">
                 <label class="flex gap-2">
                   <input type="checkbox" v-model="slot.hasMaxQuantityPerBooking" />
@@ -468,10 +477,6 @@ const deleteEvent = async () => {
                 </label>
                 <input type="number" v-model="slot.maxQuantityPerBooking" class="input-text" :disabled="!slot.hasMaxQuantityPerBooking" min="1" />
               </div>
-              <label class="flex gap-2">
-                <input type="checkbox" v-model="slot.canRequestIfFullyBooked" />
-                <span class="text-sm">Anfragen möglich, wenn ausgebucht</span>
-              </label>
             </li>
           </template>
           <li v-if="editEvent !== undefined && event.canAddSlot" class="flex items-center">
