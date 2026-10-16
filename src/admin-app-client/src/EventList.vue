@@ -4,15 +4,17 @@ import EventView from './EventView.vue'
 
 defineProps<{
   events: DataTransfer.Event[]
+  canDuplicate: boolean
 }>()
 
 defineEmits<{
   eventUpdated: []
+  duplicateEvent: [event: DataTransfer.Event]
 }>()
 </script>
 <template>
   <div v-if="events.length === 0">Keine Events vorhanden.</div>
   <div v-else class="flex flex-col gap-2">
-    <EventView v-for="event in events" :key="event.key" :event="event" @event-updated="$emit('eventUpdated')" />
+    <EventView v-for="event in events" :key="event.key" :event="event" :can-duplicate="canDuplicate" @event-updated="$emit('eventUpdated')" @duplicate-event="$emit('duplicateEvent', event)" />
   </div>
 </template>

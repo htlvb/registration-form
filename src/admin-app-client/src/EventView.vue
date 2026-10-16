@@ -8,6 +8,7 @@ import ShareLink from './components/ShareLink.vue'
 const props = defineProps<{
   event: DataTransfer.Event
   isNew?: boolean
+  canDuplicate?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -54,10 +55,6 @@ const slugify = (text: string) =>
 
 // key of a new event follows the title until it's changed manually (clearing it switches back to following the title)
 const isKeyChangedManually = ref(false)
-watch(() => editEvent.value?.title, title => {
-  if (!props.isNew || editEvent.value === undefined || title === undefined || isKeyChangedManually.value) return
-  editEvent.value.key = slugify(title)
-})
 const onKeyInput = () => {
   if (editEvent.value === undefined) return
   isKeyChangedManually.value = editEvent.value.key !== ''
@@ -73,7 +70,7 @@ const beginEdit = () => {
     reservationStartTime: props.event.reservationStartTime,
     slots: props.event.slots.map(slot => ({
       id: slotId++,
-      original: slot,
+      original: props.isNew ? undefined : slot, // slots of a new event (e.g. copied from a duplicated event) don't exist yet
       startTime: slot.startTime,
       hasDuration: slot.duration !== null,
       endTime: slot.duration ? DateTime.toInputString(DateTime.addTimeSpan(new Date(slot.startTime), slot.duration)) : undefined,
@@ -83,7 +80,7 @@ const beginEdit = () => {
       maxQuantityPerBooking: slot.maxQuantityPerBooking || 0,
       hasRemainingCapacity: slot.remainingCapacity !== null,
       remainingCapacity: slot.remainingCapacity || 0,
-      isNew: false,
+      isNew: props.isNew,
       delete: false,
     })),
     registrationConfirmationMail: props.event.registrationConfirmationMail,
@@ -98,6 +95,11 @@ const cancelEdit = () => {
 }
 // a new event exists only while it's being edited
 if (props.isNew) beginEdit()
+// after `beginEdit`, so that the key of a duplicated event is calculated right away
+watch(() => editEvent.value?.title, title => {
+  if (!props.isNew || editEvent.value === undefined || title === undefined || isKeyChangedManually.value) return
+  editEvent.value.key = slugify(title)
+}, { immediate: true })
 
 const isShowingDetails = ref(false)
 
@@ -313,7 +315,7 @@ const deleteEvent = async () => {
           <i class="fa-solid fa-trash-can"></i>
         </a>
         <ShareLink :url="event.publicRegistrationUrl" :title="event.title" />
-        <a class="p-2 cursor-pointer" title="Duplizieren" @click="$emit('duplicateEvent')">
+        <a v-if="canDuplicate" class="p-2 cursor-pointer" title="Duplizieren" @click="$emit('duplicateEvent')">
           <i class="fa-solid fa-clone"></i>
         </a>
       </span>

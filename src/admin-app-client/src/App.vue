@@ -20,16 +20,23 @@ const loadEvents = async () => {
 loadEvents()
 
 const newEvent = ref<DataTransfer.Event>()
-const addEvent = (createEventUrl: string) => {
+const newEventId = ref(0) // new form for every new event, because the form is initialized only once
+const duplicateEvent = (event: DataTransfer.Event) => {
+  if (eventList.value === undefined || eventList.value.createEventUrl === null) return
+  addEvent(eventList.value.createEventUrl, event)
+  window.scrollTo({ top: 0, behavior: 'smooth' }) // form of new event is at the top of the drafts
+}
+const addEvent = (createEventUrl: string, template?: DataTransfer.Event) => {
+  newEventId.value++
   newEvent.value = {
     type: 'draft',
-    key: '',
-    title: '',
-    infoText: '',
-    reservationStartTime: '',
-    slots: [],
-    registrationConfirmationMail: { subject: '', contentTemplate: '' },
-    requestConfirmationMail: null,
+    key: '', // calculated from title
+    title: template?.title ?? '',
+    infoText: template?.infoText ?? '',
+    reservationStartTime: template?.reservationStartTime ?? '',
+    slots: template?.slots ?? [],
+    registrationConfirmationMail: template?.registrationConfirmationMail ?? { subject: '', contentTemplate: '' },
+    requestConfirmationMail: template?.requestConfirmationMail ?? null,
     url: createEventUrl,
     publicRegistrationUrl: '',
     canDelete: false,
@@ -68,16 +75,16 @@ const addEvent = (createEventUrl: string) => {
               <i class="fa-solid fa-plus"></i>
             </a>
           </div>
-          <EventView v-if="newEvent !== undefined" :event="newEvent" is-new @edit-cancelled="newEvent = undefined" @event-updated="newEvent = undefined; loadEvents()" />
-          <EventList :events="eventList.events.filter(v => v.type === 'draft')" @event-updated="loadEvents" />
+          <EventView v-if="newEvent !== undefined" :key="newEventId" :event="newEvent" is-new @edit-cancelled="newEvent = undefined" @event-updated="newEvent = undefined; loadEvents()" />
+          <EventList :events="eventList.events.filter(v => v.type === 'draft')" :can-duplicate="eventList.createEventUrl !== null" @event-updated="loadEvents" @duplicate-event="duplicateEvent" />
         </section>
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Aktive Events</h2>
-          <EventList :events="eventList.events.filter(v => v.type === 'released')" @event-updated="loadEvents" />
+          <EventList :events="eventList.events.filter(v => v.type === 'released')" :can-duplicate="eventList.createEventUrl !== null" @event-updated="loadEvents" @duplicate-event="duplicateEvent" />
         </section>
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <h2 class="text-2xl">Archiv</h2>
-          <EventList :events="eventList.events.filter(v => v.type === 'archived')" @event-updated="loadEvents" />
+          <EventList :events="eventList.events.filter(v => v.type === 'archived')" :can-duplicate="eventList.createEventUrl !== null" @event-updated="loadEvents" @duplicate-event="duplicateEvent" />
         </section>
       </template>
     </section>
