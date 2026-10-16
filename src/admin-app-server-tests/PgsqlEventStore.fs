@@ -42,6 +42,12 @@ let addRegistration (dataSource: NpgsqlDataSource) (eventKey: string) (time: Dat
     return! connection.QuerySingleAsync<int>($"INSERT INTO event_registration (%s{fieldNames}) VALUES (%s{parameterNames}) RETURNING id", parameters) |> Async.AwaitTask
 }
 
+let createEvent (eventStore: IEventStore) event = async {
+    match! eventStore.CreateEvent event with
+    | Ok () -> ()
+    | Error e -> failwith $"Creating event failed: %A{e}"
+}
+
 [<Tests>]
 let tests =
     testList "PgsqlEventStore" [
@@ -49,7 +55,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -109,11 +115,41 @@ let tests =
             Expect.equal actual expected "Event should have been created"
         }
 
+        testCaseTask "Can't create event with existing key" <| fun () -> task {
+            use! db = startDb
+            use dataSource = getDataSource db
+            let eventStore = PgsqlEventStore(dataSource) :> IEventStore
+            let event : Domain.EventData = {
+                Key = "lets-code-2425"
+                Title = "Let's code 2024/25"
+                InfoText = ""
+                ReservationStartTime = DateTime.Today
+                Slots = [|
+                    {
+                        Time = DateTime.Today.AddDays 1.5
+                        Duration = None
+                        ClosingDate = None
+                        MaxQuantityPerBooking = None
+                        RemainingCapacity = None
+                        CanRequestIfFullyBooked = false
+                    }
+                |]
+                RegistrationConfirmationMail = { Subject = "Anmeldung"; ContentTemplate = "Danke für deine Anmeldung" }
+                RequestConfirmationMail = None
+                EditorIds = [| "EINA@htlvb.at" |]
+            }
+            do! createEvent eventStore event
+            let! result = eventStore.CreateEvent { event with Title = "Let's code 2025/26"; Slots = [||] }
+            Expect.equal result (Error Domain.EventKeyAlreadyExists) "Event with existing key should not have been created"
+            let! actual = eventStore.GetEvents()
+            Expect.equal actual [ event ] "Existing event should not have been changed"
+        }
+
         testCaseTask "Can update event key" <| fun () -> task {
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -152,7 +188,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -264,7 +300,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -304,7 +340,7 @@ let tests =
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
             let slotTime = DateTime.Today.AddDays(1).AddHours(8)
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -348,7 +384,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -404,7 +440,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""
@@ -432,7 +468,7 @@ let tests =
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
-            do! eventStore.CreateEvent {
+            do! createEvent eventStore {
                 Key = "lets-code-2425"
                 Title = "Let's code 2024/25"
                 InfoText = ""

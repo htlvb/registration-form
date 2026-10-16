@@ -86,7 +86,7 @@ module DbEventRegistration =
         }
 
 type IEventStore =
-    abstract member CreateEvent: event: Domain.EventData -> Async<unit>
+    abstract member CreateEvent: event: Domain.EventData -> Async<Result<unit, Domain.CreateEventError>>
     abstract member GetEvents: unit -> Async<Domain.EventData list>
     abstract member TryGetEvent: eventKey: string -> Async<Domain.EventData option>
     abstract member UpdateEvent: eventKey: string -> data: Domain.EventUpdateData -> Async<unit>
@@ -200,10 +200,14 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
                 let p = DynamicParameters()
                 fields |> List.iter (fun (name, value) -> p.Add(name, value))
                 p
-            do! connection.ExecuteAsync($"INSERT INTO event (%s{fieldNames}) VALUES (%s{paramNames})", parameters, tx) |> Async.AwaitTask |> Async.Ignore
-            do! insertSlots connection tx event.Key event.Slots
-            
-            do! tx.CommitAsync() |> Async.AwaitTask
+            let! insertedRows = connection.ExecuteAsync($"INSERT INTO event (%s{fieldNames}) VALUES (%s{paramNames}) ON CONFLICT (key) DO NOTHING", parameters, tx) |> Async.AwaitTask
+            if insertedRows = 0 then
+                do! tx.RollbackAsync() |> Async.AwaitTask
+                return Error Domain.EventKeyAlreadyExists
+            else
+                do! insertSlots connection tx event.Key event.Slots
+                do! tx.CommitAsync() |> Async.AwaitTask
+                return Ok ()
         }
 
         member _.GetEvents () = async {
@@ -311,7 +315,11 @@ type InMemoryEventStore(events) =
     let mutable events = events
     interface IEventStore with
         member _.CreateEvent event = async {
-            events <- event :: events
+            if events |> List.exists (fun v -> v.Key = event.Key) then
+                return Error Domain.EventKeyAlreadyExists
+            else
+                events <- event :: events
+                return Ok ()
         }
         member _.GetEvents() = async {
             return events

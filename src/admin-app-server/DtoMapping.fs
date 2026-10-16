@@ -18,6 +18,11 @@ module MailTemplate =
         ContentTemplate = mailTemplate.ContentTemplate
     }
 
+    let toDomain (v: DataTransfer.MailTemplate) : Domain.MailTemplate = {
+        Subject = v.Subject
+        ContentTemplate = v.ContentTemplate
+    }
+
 module Event =
     let fromDomain eventUrl publicRegistrationUrl getSlotRegistrationsUrl event : DataTransfer.Event =
         let eventType, data =
@@ -45,6 +50,28 @@ module Event =
             CanViewRegistrations = permissions.CanViewRegistrations
 
         }
+
+module CreateEventDataSlot =
+    let toDomain (v: DataTransfer.CreateEventDataSlot) : Domain.Slot = {
+        Time = v.StartTime
+        Duration = v.Duration
+        ClosingDate = v.ClosingDate
+        MaxQuantityPerBooking = v.MaxQuantityPerBooking
+        RemainingCapacity = v.RemainingCapacity
+        CanRequestIfFullyBooked = v.CanRequestIfFullyBooked
+    }
+
+module CreateEventData =
+    let toDomain editorIds (v: DataTransfer.CreateEventData) : Domain.EventData = {
+        Key = v.Key
+        Title = v.Title
+        InfoText = v.InfoText
+        ReservationStartTime = v.ReservationStartTime
+        Slots = v.Slots |> Array.map CreateEventDataSlot.toDomain
+        RegistrationConfirmationMail = MailTemplate.toDomain v.RegistrationConfirmationMail
+        RequestConfirmationMail = Option.map MailTemplate.toDomain v.RequestConfirmationMail
+        EditorIds = editorIds
+    }
 
 module PatchMailTemplate =
     let toDomain (v: DataTransfer.PatchMailTemplate) : Domain.MailTemplate =

@@ -38,6 +38,9 @@ module Event =
         else
             ReleasedEvent eventData
 
+type CreateEventError =
+    | EventKeyAlreadyExists
+
 type SlotUpdateData = {
     Time: DateTime option
     Duration: TimeSpan option option

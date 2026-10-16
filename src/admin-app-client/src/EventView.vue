@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import * as DataTransfer from './DataTransfer'
 import * as DateTime from './DateTime'
 import { uiFetchAuthorized } from './UIFetch'
@@ -7,14 +7,17 @@ import ShareLink from './components/ShareLink.vue'
 
 const props = defineProps<{
   event: DataTransfer.Event
+  isNew?: boolean
 }>()
 
 const emit = defineEmits<{
   duplicateEvent: []
   eventUpdated: []
+  editCancelled: []
 }>()
 
 type EditableEvent = {
+  key: string
   title: string
   infoText: string
   reservationStartTime: string
@@ -40,9 +43,31 @@ type EditableSlot = {
 
 const editEvent = ref<EditableEvent>()
 
+const slugify = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .replace(/['’]/g, '') // "Let's" -> "lets"
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+// key of a new event follows the title until it's changed manually (clearing it switches back to following the title)
+const isKeyChangedManually = ref(false)
+watch(() => editEvent.value?.title, title => {
+  if (!props.isNew || editEvent.value === undefined || title === undefined || isKeyChangedManually.value) return
+  editEvent.value.key = slugify(title)
+})
+const onKeyInput = () => {
+  if (editEvent.value === undefined) return
+  isKeyChangedManually.value = editEvent.value.key !== ''
+  if (!isKeyChangedManually.value) editEvent.value.key = slugify(editEvent.value.title)
+}
+
 let slotId = 0
 const beginEdit = () => {
   editEvent.value = {
+    key: props.event.key,
     title: props.event.title,
     infoText: props.event.infoText,
     reservationStartTime: props.event.reservationStartTime,
@@ -69,7 +94,10 @@ const cancelEdit = () => {
   editEvent.value = undefined
   saveError.value = undefined
   isMarkedForDeletion.value = false
+  emit('editCancelled')
 }
+// a new event exists only while it's being edited
+if (props.isNew) beginEdit()
 
 const isShowingDetails = ref(false)
 
@@ -106,6 +134,7 @@ const deleteSlot = (slot: EditableSlot) => {
 const isValidTime = (v: string | undefined) => v !== undefined && v !== '' && !isNaN(new Date(v).getTime())
 
 const validate = (edit: EditableEvent) => {
+  if (props.isNew && edit.key.trim() === '') return 'Der Schlüssel darf nicht leer sein.'
   if (edit.title.trim() === '') return 'Der Titel darf nicht leer sein.'
   if (!isValidTime(edit.reservationStartTime)) return 'Der Registrierungsbeginn ist ungültig.'
   const slots = edit.slots.filter(v => !v.delete)
@@ -175,6 +204,25 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
   }]
 }
 
+const getNewEvent = (edit: EditableEvent) : DataTransfer.CreateEventData => {
+  return {
+    key: edit.key.trim(),
+    title: edit.title,
+    infoText: edit.infoText,
+    reservationStartTime: edit.reservationStartTime,
+    slots: edit.slots.map(slot => ({
+      startTime: slot.startTime,
+      duration: getDuration(slot),
+      closingDate: slot.hasClosingDate && slot.closingDate !== undefined ? slot.closingDate : null,
+      maxQuantityPerBooking: slot.hasMaxQuantityPerBooking ? slot.maxQuantityPerBooking : null,
+      remainingCapacity: slot.hasRemainingCapacity ? slot.remainingCapacity : null,
+      canRequestIfFullyBooked: false,
+    })),
+    registrationConfirmationMail: edit.registrationConfirmationMail,
+    requestConfirmationMail: edit.requestConfirmationMail,
+  }
+}
+
 const getEventPatch = (edit: EditableEvent) : DataTransfer.PatchEventData => {
   const canEditEventData = props.event.canEditEventData
   return {
@@ -198,14 +246,18 @@ const saveEvent = async () => {
   saveError.value = validate(editEvent.value)
   if (saveError.value !== undefined) return
 
+  // url of a new event is the url to create it
   const result = await uiFetchAuthorized(isSaving, hasSavingFailed, props.event.url, {
-    method: 'PATCH',
+    method: props.isNew ? 'POST' : 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(getEventPatch(editEvent.value)),
+    body: JSON.stringify(props.isNew ? getNewEvent(editEvent.value) : getEventPatch(editEvent.value)),
   })
   if (result.succeeded) {
     editEvent.value = undefined
     emit('eventUpdated')
+  }
+  else if (result.response?.status === 409) {
+    saveError.value = 'Ein Event mit diesem Schlüssel existiert bereits.'
   }
   else {
     saveError.value = 'Fehler beim Speichern des Events.'
@@ -254,6 +306,10 @@ const deleteEvent = () => {
     </div>
     <span v-if="saveError !== undefined" class="text-rose-400">{{ saveError }}</span>
     <div v-if="isShowingDetails || editEvent !== undefined" class="flex flex-col gap-2">
+      <div v-if="isNew && editEvent !== undefined" class="flex flex-col gap-1">
+        <span class="text-sm">Schlüssel (Teil der Registrierungs-URL)</span>
+        <input type="text" v-model="editEvent.key" class="input-text self-start" @input="onKeyInput" />
+      </div>
       <div class="flex flex-col gap-1">
         <span class="text-sm">Infotext</span>
         <textarea v-if="editEvent !== undefined" v-model="editEvent.infoText" class="input-text"></textarea>

@@ -48,11 +48,30 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     [<Authorize(Policy = "ReadEvent")>]
     member _.GetEvents() = async {
         let! events = eventStore.GetEvents()
-        return events
-        |> List.map (fun eventData ->
-            let event = Domain.Event.fromEventData timeProvider eventData
-            DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) (getSlotRegistrationsUrl eventData.Key) event
-        )
+        let! createEventAuthorization = authService.AuthorizeAsync(this.User, "CreateEvent") |> Async.AwaitTask
+        return {|
+            Events =
+                events
+                |> List.map (fun eventData ->
+                    let event = Domain.Event.fromEventData timeProvider eventData
+                    DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) (getSlotRegistrationsUrl eventData.Key) event
+                )
+            CreateEventUrl = if createEventAuthorization.Succeeded then Some (this.Url.Action(nameof(this.CreateEvent))) else None
+        |}
+    }
+
+    [<HttpPost>]
+    [<Authorize(Policy = "CreateEvent")>]
+    member _.CreateEvent([<FromBody>]data: DataTransfer.CreateEventData) = async {
+        if String.IsNullOrWhiteSpace data.Key || String.IsNullOrWhiteSpace data.Title then
+            return this.BadRequest() :> IActionResult
+        else
+            // creator must be an editor, otherwise event writers couldn't edit their own events
+            let editorIds = this.User.Identity.Name |> Option.ofObj |> Option.toArray
+            let event = DtoMapping.CreateEventData.toDomain editorIds data
+            match! eventStore.CreateEvent event with
+            | Ok () -> return this.Created(getEventUrl event.Key, null)
+            | Error Domain.EventKeyAlreadyExists -> return this.Conflict()
     }
 
     [<HttpPatch("{eventKey}")>]

@@ -30,6 +30,29 @@ export type Event = {
   canViewRegistrations: boolean
 }
 
+export type EventList = {
+  events: Event[]
+  createEventUrl: string | null
+}
+
+export type CreateEventDataSlot = {
+  startTime: string
+  duration: string | null
+  closingDate: string | null
+  maxQuantityPerBooking: number | null
+  remainingCapacity: number | null
+  canRequestIfFullyBooked: boolean
+}
+export type CreateEventData = {
+  key: string
+  title: string
+  infoText: string
+  reservationStartTime: string
+  slots: CreateEventDataSlot[]
+  registrationConfirmationMail: MailTemplate
+  requestConfirmationMail: MailTemplate | null
+}
+
 export type PatchEventDataSlot =
   {
     type: 'create'

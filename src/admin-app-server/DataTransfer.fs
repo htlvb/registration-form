@@ -121,6 +121,24 @@ type PatchEventData = {
     RequestConfirmationMail: PatchMailTemplate option
     SetRequestConfirmationMail: bool
 }
+type CreateEventDataSlot = {
+    StartTime: DateTime
+    Duration: TimeSpan option
+    ClosingDate: DateTime option
+    MaxQuantityPerBooking: int option
+    RemainingCapacity: int option
+    CanRequestIfFullyBooked: bool
+}
+type CreateEventData = {
+    Key: string
+    Title: string
+    InfoText: string
+    ReservationStartTime: DateTime
+    Slots: CreateEventDataSlot[]
+    RegistrationConfirmationMail: MailTemplate
+    RequestConfirmationMail: MailTemplate option
+}
+
 type PatchSlotData = {
     StartTime: DateTime
     Duration: TimeSpan option
