@@ -578,7 +578,7 @@ let tests =
             Expect.isNone unknownRegistration "Registration with invalid id should not have been found"
         }
 
-        testCaseTask "Cancelling registration releases capacity" <| fun () -> task {
+        testCaseTask "Cancelling registration doesn't release capacity" <| fun () -> task {
             use! db = startDb
             use dataSource = getDataSource db
             let eventStore = PgsqlEventStore(dataSource) :> IEventStore
@@ -600,10 +600,9 @@ let tests =
             let! requestId = addRegistrationWith dataSource "lets-code-2425" slot 4 true
             do! eventStore.CancelEventRegistration (string registrationId) DateTime.Now
             do! eventStore.CancelEventRegistration (string requestId) DateTime.Now
-            do! eventStore.CancelEventRegistration (string registrationId) DateTime.Now // already cancelled
             let! event = eventStore.TryGetEvent "lets-code-2425"
             let actual = event |> Option.map (fun v -> v.Slots |> Array.map _.RemainingCapacity)
-            Expect.equal actual (Some [| Some 13 |]) "Only cancelling a registration (not a request) once should release capacity"
+            Expect.equal actual (Some [| Some 10 |]) "Cancelling should not release capacity, because places might be given to people on the waiting list"
         }
 
         testCaseTask "Can cancel event registration" <| fun () -> task {

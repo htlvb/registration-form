@@ -125,13 +125,6 @@ module DbEventRegistration =
             DeregistrationTime = Option.ofNullable dbEventRegistration.deregistration_time
         }
 
-type DbCancelledEventRegistration = {
-    event_key: string
-    time: DateTime
-    quantity: int
-    is_request: bool
-}
-
 type IEventStore =
     abstract member CreateEvent: event: Domain.EventData -> Async<Result<unit, Domain.CreateEventError>>
     abstract member GetEvents: unit -> Async<Domain.EventData list>
@@ -374,18 +367,15 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
         }
 
         member _.CancelEventRegistration registrationId timestamp = async {
+            // remaining capacity isn't released, because people on the waiting list might get the places
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
-            use! tx = connection.BeginTransactionAsync().AsTask() |> Async.AwaitTask
-            let! cancelledRegistrations =
-                connection.QueryAsync<DbCancelledEventRegistration>(
-                    "UPDATE event_registration SET deregistration_time = @DeregistrationTime WHERE id = @RegistrationId AND deregistration_time IS NULL RETURNING event_key, time, quantity, is_request",
-                    {| RegistrationId = int registrationId; DeregistrationTime = timestamp |},
-                    tx
+            do!
+                connection.ExecuteAsync(
+                    "UPDATE event_registration SET deregistration_time = @DeregistrationTime WHERE id = @RegistrationId AND deregistration_time IS NULL",
+                    {| RegistrationId = int registrationId; DeregistrationTime = timestamp |}
                 )
                 |> Async.AwaitTask
-            for registration in cancelledRegistrations |> Seq.filter (fun v -> not v.is_request) do
-                do! connection.ExecuteAsync("UPDATE event_slot SET remaining_capacity = remaining_capacity + @Quantity WHERE event_key = @EventKey AND time = @Time AND remaining_capacity IS NOT NULL", {| EventKey = registration.event_key; Time = registration.time; Quantity = registration.quantity |}, tx) |> Async.AwaitTask |> Async.Ignore
-            do! tx.CommitAsync() |> Async.AwaitTask
+                |> Async.Ignore
         }
 
 type InMemoryEventStore(events) =

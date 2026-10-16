@@ -50,7 +50,7 @@ const cancelRegistration = async (registration: DataTransfer.EventRegistration) 
   const result = await uiFetchAuthorized(isCancelling, hasCancellingFailed, registration.url, { method: 'DELETE' })
   registrationMarkedForCancellation.value = undefined
   if (result.succeeded) {
-    emit('registrationCancelled') // event list (incl. registrations, counts and remaining capacity) must be reloaded
+    emit('registrationCancelled') // event list (incl. registrations and counts) must be reloaded
   }
   else {
     cancelError.value = 'Fehler beim Stornieren der Registrierung.'
