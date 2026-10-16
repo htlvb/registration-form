@@ -11,7 +11,6 @@
     <Compile Include="Domain.fs" />
     <Compile Include="DataTransfer.fs" />
     <Compile Include="DtoMapping.fs" />
-    <Compile Include="DtoParsing.fs" />
     <Compile Include="EventStore.fs" />
     <Compile Include="Controllers/EventController.fs" />
     <Compile Include="Program.fs" />

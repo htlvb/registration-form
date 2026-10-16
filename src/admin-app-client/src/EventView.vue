@@ -4,6 +4,7 @@ import * as DataTransfer from './DataTransfer'
 import * as DateTime from './DateTime'
 import { uiFetchAuthorized } from './UIFetch'
 import ShareLink from './components/ShareLink.vue'
+import SlotRegistrations from './SlotRegistrations.vue'
 
 const props = defineProps<{
   event: DataTransfer.Event
@@ -102,6 +103,7 @@ watch(() => editEvent.value?.title, title => {
 }, { immediate: true })
 
 const isShowingDetails = ref(false)
+const isShowingRegistrations = ref(false)
 
 const addSlot = () => {
   if (editEvent.value === undefined) return
@@ -314,6 +316,9 @@ const deleteEvent = async () => {
         <a v-if="event.canDelete" class="p-2 cursor-pointer" :class="{ 'text-rose-400': isMarkedForDeletion, 'opacity-50 cursor-wait!': isDeleting }" :title="isMarkedForDeletion ? 'Wirklich löschen' : 'Löschen'" @click="deleteEvent">
           <i class="fa-solid fa-trash-can"></i>
         </a>
+        <a v-if="event.canViewRegistrations" class="p-2 cursor-pointer" :class="{ 'text-blue-400': isShowingRegistrations }" :title="isShowingRegistrations ? 'Registrierungen ausblenden' : 'Registrierungen anzeigen'" @click="isShowingRegistrations = !isShowingRegistrations">
+          <i class="fa-solid fa-users"></i>
+        </a>
         <ShareLink :url="event.publicRegistrationUrl" :title="event.title" />
         <a v-if="canDuplicate" class="p-2 cursor-pointer" title="Duplizieren" @click="$emit('duplicateEvent')">
           <i class="fa-solid fa-clone"></i>
@@ -322,6 +327,11 @@ const deleteEvent = async () => {
     </div>
     <span v-if="saveError !== undefined" class="text-rose-400">{{ saveError }}</span>
     <span v-if="deleteError !== undefined" class="text-rose-400">{{ deleteError }}</span>
+    <div v-if="isShowingRegistrations && editEvent === undefined" class="flex flex-col gap-2">
+      <span class="text-sm">Registrierungen</span>
+      <span v-if="event.slots.length === 0" class="ml-4">Keine Slots vorhanden.</span>
+      <SlotRegistrations v-for="slot in event.slots" :key="slot.startTime" :event-slot="slot" @registration-cancelled="$emit('eventUpdated')" />
+    </div>
     <div v-if="isShowingDetails || editEvent !== undefined" class="flex flex-col gap-2">
       <div v-if="isNew && editEvent !== undefined" class="flex flex-col gap-1">
         <span class="text-sm">Schlüssel (Teil der Registrierungs-URL)</span>

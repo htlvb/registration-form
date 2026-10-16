@@ -2,14 +2,27 @@ namespace HTLVB.RegistrationForm.Admin.Server.DtoMapping
 
 open HTLVB.RegistrationForm.Admin.Server
 
+module EventRegistrations =
+    let fromDomain registrationUrl (registration: Domain.EventRegistration) : DataTransfer.EventRegistration =
+        {
+            Quantity = registration.Quantity
+            Name = registration.Name
+            MailAddress = registration.MailAddress
+            PhoneNumber = registration.PhoneNumber
+            Timestamp = registration.Timestamp
+            IsRequest = registration.IsRequest
+            DeregistrationTime = registration.DeregistrationTime
+            Url = registrationUrl
+        }
+
 module Slot =
-    let fromDomain slotRegistrationsUrl (slot: Domain.Slot) : DataTransfer.Slot = {
+    let fromDomain (registrations: DataTransfer.EventRegistration list) (slot: Domain.Slot) : DataTransfer.Slot = {
         StartTime = slot.Time
         Duration = slot.Duration
         ClosingDate = slot.ClosingDate
         MaxQuantityPerBooking = slot.MaxQuantityPerBooking
         RemainingCapacity = slot.RemainingCapacity
-        RegistrationsUrl = slotRegistrationsUrl
+        Registrations = registrations
     }
 
 module MailTemplate =
@@ -24,20 +37,26 @@ module MailTemplate =
     }
 
 module Event =
-    let fromDomain eventUrl publicRegistrationUrl getSlotRegistrationsUrl event : DataTransfer.Event =
+    let fromDomain eventUrl publicRegistrationUrl getRegistrationUrl getSlotRegistrations isAllowedToViewRegistrations event : DataTransfer.Event =
         let eventType, data =
             match event with
             | Domain.DraftEvent v -> "draft", v
             | Domain.ReleasedEvent v -> "released", v
             | Domain.ArchivedEvent v -> "archived", v
         let permissions = Domain.EventPermissions.fromEvent event
+        let canViewRegistrations = permissions.CanViewRegistrations && isAllowedToViewRegistrations
+        let getSlot (slot: Domain.Slot) =
+            let registrations =
+                if canViewRegistrations then getSlotRegistrations slot |> List.map (fun v -> EventRegistrations.fromDomain (getRegistrationUrl v) v)
+                else []
+            Slot.fromDomain registrations slot
         {
             Type = eventType
             Key = data.Key
             Title = data.Title
             InfoText = data.InfoText
             ReservationStartTime = data.ReservationStartTime
-            Slots = data.Slots |> Array.map (fun v -> let slotRegistrationsUrl = getSlotRegistrationsUrl v in Slot.fromDomain slotRegistrationsUrl v)
+            Slots = data.Slots |> Array.map getSlot
             RegistrationConfirmationMail = MailTemplate.fromDomain data.RegistrationConfirmationMail
             RequestConfirmationMail = Option.map MailTemplate.fromDomain data.RequestConfirmationMail
             Url = eventUrl
@@ -47,7 +66,7 @@ module Event =
             CanAddSlot = permissions.CanAddSlot
             CanEditSlot = permissions.CanEditSlot
             CanDeleteSlot = permissions.CanDeleteSlot
-            CanViewRegistrations = permissions.CanViewRegistrations
+            CanViewRegistrations = canViewRegistrations
 
         }
 
@@ -93,17 +112,4 @@ module PatchEventData =
             Slots = v.Slots |> Array.map PatchEventDataSlot.toDomain
             RegistrationConfirmationMail = Option.map PatchMailTemplate.toDomain v.RegistrationConfirmationMail
             RequestConfirmationMail = if v.SetRequestConfirmationMail then Some (Option.map PatchMailTemplate.toDomain v.RequestConfirmationMail) else None
-        }
-
-module EventRegistrations =
-    let fromDomain registrationUrl (registration: Domain.EventRegistration) : DataTransfer.EventRegistration =
-        {
-            Quantity = registration.Quantity
-            Name = registration.Name
-            MailAddress = registration.MailAddress
-            PhoneNumber = registration.PhoneNumber
-            Timestamp = registration.Timestamp
-            IsRequest = registration.IsRequest
-            DeregistrationTime = registration.DeregistrationTime
-            Url = registrationUrl
         }

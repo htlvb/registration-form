@@ -5,7 +5,6 @@ open Microsoft.AspNetCore.Authorization
 open Microsoft.AspNetCore.Mvc
 open Microsoft.Extensions.Logging
 open System
-open System.Globalization
 
 type PublicRegistrationSettings = {
     BaseUrl: Uri
@@ -37,10 +36,6 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     let getPublicRegistrationUrl (eventKey: string) =
         Uri(publicRegistrationSettings.BaseUrl, Uri.EscapeDataString eventKey).ToString()
 
-    let getSlotRegistrationsUrl (eventKey: string) (slot: Domain.Slot) =
-        let slotQueryParam = slot.Time.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture)
-        this.Url.Action(nameof(this.GetEventSlotRegistrations), {| eventKey = eventKey; slot = slotQueryParam |})
-
     let getRegistrationUrl (registration: Domain.EventRegistration) =
         this.Url.Action(nameof(this.CancelRegistration), {| registrationId = registration.Id |})
 
@@ -48,13 +43,24 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     [<Authorize(Policy = "ReadEvent")>]
     member _.GetEvents() = async {
         let! events = eventStore.GetEvents()
+        let! registrations = eventStore.GetAllEventRegistrations()
+        let registrationMap = registrations |> List.groupBy (fun v -> v.EventKey, v.Time) |> Map.ofList
+        let getSlotRegistrations (eventKey: string) (slot: Domain.Slot) =
+            registrationMap |> Map.tryFind (eventKey, slot.Time) |> Option.defaultValue []
+        let! eventsWithRegistrationAuthorization =
+            events
+            |> List.map (fun eventData -> async {
+                let! authorization = authService.AuthorizeAsync(this.User, eventData, "ReadEventRegistrations") |> Async.AwaitTask
+                return eventData, authorization.Succeeded
+            })
+            |> Async.Sequential
         let! createEventAuthorization = authService.AuthorizeAsync(this.User, "CreateEvent") |> Async.AwaitTask
         return {|
             Events =
-                events
-                |> List.map (fun eventData ->
+                eventsWithRegistrationAuthorization
+                |> Array.map (fun (eventData, isAllowedToViewRegistrations) ->
                     let event = Domain.Event.fromEventData timeProvider eventData
-                    DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) (getSlotRegistrationsUrl eventData.Key) event
+                    DtoMapping.Event.fromDomain (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) getRegistrationUrl (getSlotRegistrations eventData.Key) isAllowedToViewRegistrations event
                 )
             CreateEventUrl = if createEventAuthorization.Succeeded then Some (this.Url.Action(nameof(this.CreateEvent))) else None
         |}
@@ -101,24 +107,6 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
             else
                 do! eventStore.DeleteEvent event.Key
                 return this.Ok()
-    }
-
-    [<HttpGet("{eventKey}/{slot}/registrations")>]
-    member _.GetEventSlotRegistrations (eventKey: string) (slot: string) = async {
-        match! checkEventAuthorization eventKey "ReadEventRegistrations" with
-        | EventNotFound -> return this.NotFound() :> IActionResult
-        | EventAuthorizationFailed _ -> return this.Unauthorized()
-        | EventAuthorizationSucceeded event ->
-            match DtoParsing.DateTime.tryParse slot with
-            | Some slotTime ->
-                let! registrations = eventStore.GetEventRegistrations event.Key slotTime
-                let registrationDtos = [
-                    for registration in registrations do
-                        let registrationUrl = getRegistrationUrl registration
-                        DtoMapping.EventRegistrations.fromDomain registrationUrl registration
-                ]
-                return this.Ok(registrationDtos) :> IActionResult
-            | None -> return this.NotFound()
     }
 
     [<HttpDelete("registrations/{registrationId}")>]

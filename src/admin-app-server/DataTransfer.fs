@@ -4,13 +4,24 @@ open HTLVB.RegistrationForm.Admin.Server
 open System
 open System.Text.Json.Serialization
 
+type EventRegistration = {
+    Quantity: int
+    Name: string
+    MailAddress: string
+    PhoneNumber: string
+    Timestamp: DateTime
+    IsRequest: bool
+    DeregistrationTime: DateTime option
+    Url: string
+}
+
 type Slot = {
     StartTime: DateTime
     Duration: TimeSpan option
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
-    RegistrationsUrl: string
+    Registrations: EventRegistration list
 }
 
 type MailTemplate = {
@@ -145,15 +156,4 @@ type PatchSlotData = {
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
-}
-
-type EventRegistration = {
-    Quantity: int
-    Name: string
-    MailAddress: string
-    PhoneNumber: string
-    Timestamp: DateTime
-    IsRequest: bool
-    DeregistrationTime: DateTime option
-    Url: string
 }

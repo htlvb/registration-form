@@ -4,7 +4,18 @@ export type Slot = {
   closingDate: string | null
   maxQuantityPerBooking: number | null
   remainingCapacity: number | null
-  registrationsUrl: string
+  registrations: EventRegistration[]
+}
+
+export type EventRegistration = {
+  quantity: number
+  name: string
+  mailAddress: string
+  phoneNumber: string
+  timestamp: string
+  isRequest: boolean
+  deregistrationTime: string | null
+  url: string
 }
 
 export type MailTemplate = {

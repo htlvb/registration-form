@@ -67,7 +67,8 @@ const addEvent = (createEventUrl: string, template?: DataTransfer.Event) => {
     <section class="flex flex-col gap-4 mx-4 my-2">
       <LoadingBar v-if="isLoadingEvents"></LoadingBar>
       <ErrorWithRetry v-else-if="hasLoadingEventsFailed" @retry="loadEvents">Fehler beim Laden der Events.</ErrorWithRetry>
-      <template v-else-if="eventList !== undefined">
+      <!-- list stays while reloading, so that e.g. opened registrations stay open -->
+      <template v-if="eventList !== undefined">
         <section class="flex flex-col gap-2 border rounded px-4 py-2">
           <div class="flex items-stretch gap-2">
             <h2 class="text-2xl">Entwürfe</h2>
