@@ -328,11 +328,6 @@ const deleteEvent = async () => {
     </div>
     <span v-if="saveError !== undefined" class="text-rose-400">{{ saveError }}</span>
     <span v-if="deleteError !== undefined" class="text-rose-400">{{ deleteError }}</span>
-    <div v-if="isShowingRegistrations && editEvent === undefined" class="flex flex-col gap-2">
-      <span class="text-sm">Registrierungen</span>
-      <span v-if="event.slots.length === 0" class="ml-4">Keine Slots vorhanden.</span>
-      <SlotRegistrations v-for="slot in event.slots" :key="slot.startTime" :event-slot="slot" @registration-cancelled="$emit('eventUpdated')" />
-    </div>
     <div v-if="isShowingDetails || editEvent !== undefined" class="flex flex-col gap-2">
       <div v-if="isNew && editEvent !== undefined" class="flex flex-col gap-1">
         <span class="text-sm">Schlüssel (Teil der Registrierungs-URL)</span>
@@ -410,6 +405,11 @@ const deleteEvent = async () => {
           </li>
         </ol>
       </div>
+    </div>
+    <div v-if="isShowingRegistrations && editEvent === undefined" class="flex flex-col gap-2">
+      <span class="text-sm">Registrierungen</span>
+      <span v-if="event.slots.length === 0" class="ml-4">Keine Slots vorhanden.</span>
+      <SlotRegistrations v-for="slot in event.slots" :key="slot.startTime" :event-slot="slot" @registration-cancelled="$emit('eventUpdated')" />
     </div>
   </div>
 </template>
