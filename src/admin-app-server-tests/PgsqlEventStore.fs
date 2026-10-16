@@ -10,8 +10,7 @@ open Testcontainers.PostgreSql
 
 let startDb = async {
     let db =
-        PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
+        PostgreSqlBuilder("postgres:16-alpine")
             .WithBindMount(Path.GetFullPath("db-schema.sql"), "/docker-entrypoint-initdb.d/01-schema.sql")
             .Build()
     do! db.StartAsync() |> Async.AwaitTask
