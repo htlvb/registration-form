@@ -50,14 +50,11 @@ let main args =
         )
         let isEventEditor (ctx: AuthorizationHandlerContext) =
             ctx.User.IsInRole("registrationform-eventadmin") ||
-            ctx.Resource :?> Domain.EventData
-            |> Option.ofObj
-            |> Option.exists (fun v ->
-                v.EditorIds
-                |> Seq.exists (fun v ->
-                    String.Equals(v, ctx.User.Identity.Name, StringComparison.InvariantCultureIgnoreCase)
-                )
-            )
+            match ctx.Resource :?> Domain.EventData |> Option.ofObj, UserClaims.tryGetMailAddress ctx.User with
+            | Some event, Some mailAddress ->
+                event.EditorIds
+                |> Seq.exists (fun v -> String.Equals(v, mailAddress, StringComparison.InvariantCultureIgnoreCase))
+            | _ -> false
         options.AddPolicy("ReadEventRegistrations", fun policy ->
             policy.RequireAssertion(isEventEditor) |> ignore
         )

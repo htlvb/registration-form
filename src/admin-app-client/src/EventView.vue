@@ -328,6 +328,9 @@ const saveEvent = async () => {
   else if (result.response?.status === 409) {
     saveError.value = 'Ein Event mit diesem Schlüssel existiert bereits.'
   }
+  else if (props.isNew && result.response?.status === 403) {
+    saveError.value = 'Das Event kann nicht erstellt werden, weil Ihr Konto keine E-Mail-Adresse hat.'
+  }
   else {
     saveError.value = 'Fehler beim Speichern des Events.'
   }

@@ -1,6 +1,7 @@
 namespace HTLVB.RegistrationForm.Admin.Server
 
 open Microsoft.AspNetCore.Authentication
+open System
 open System.Security.Claims
 open System.Text.Json.Nodes
 
@@ -30,3 +31,12 @@ type KeycloakRolesClaimsTransformation(clientName: string) =
                 | _ -> ()
                 return principal
             }
+
+module UserClaims =
+    /// mail address identifies event editors
+    let tryGetMailAddress (user: ClaimsPrincipal) =
+        // "email" is mapped to `ClaimTypes.Email` unless inbound claim mapping is disabled
+        [ ClaimTypes.Email; "email" ]
+        |> List.tryPick (fun claimType -> user.FindFirst claimType |> Option.ofObj)
+        |> Option.map _.Value
+        |> Option.filter (String.IsNullOrWhiteSpace >> not)

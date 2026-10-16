@@ -70,9 +70,11 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     [<Authorize(Policy = "CreateEvent")>]
     member _.CreateEvent([<FromBody>]data: DataTransfer.CreateEventData) = async {
         // creator must be an editor, otherwise event writers couldn't edit their own events
-        let editorIds = this.User.Identity.Name |> Option.ofObj |> Option.toArray
-        match DtoMapping.CreateEventData.tryToDomain editorIds data with
-        | None -> return this.BadRequest() :> IActionResult
+        match UserClaims.tryGetMailAddress this.User with
+        | None -> return this.Forbid() :> IActionResult
+        | Some mailAddress ->
+        match DtoMapping.CreateEventData.tryToDomain [| mailAddress |] data with
+        | None -> return this.BadRequest()
         | Some event when String.IsNullOrWhiteSpace event.Key || String.IsNullOrWhiteSpace event.Title -> return this.BadRequest()
         | Some event when not (event.Slots |> Array.forall (Domain.Slot.isInFuture (timeProvider.GetLocalNow().DateTime))) -> return this.BadRequest()
         | Some event when not (Domain.EventData.hasRequiredRequestConfirmationMail event) -> return this.BadRequest()
