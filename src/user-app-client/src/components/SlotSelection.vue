@@ -17,12 +17,13 @@ type SlotSummary = {
 }
 
 const summarizeSlots = (slots: Slot[]) => {
+  // explicit return type, so that object literals with misspelled properties are errors
   return slots
-    .reduce((slotSummary, slot) => {
+    .reduce((slotSummary, slot): SlotSummary => {
       switch (slot.type.type) {
         case 'free':
           if (slot.type.remainingCapacity === null) {
-            return { ...slotSummary, hasUnlimitedSlot: true }
+            return { ...slotSummary, hasUnlimitedCapacity: true }
           }
           else {
             return { ...slotSummary, freeSlots: slotSummary.freeSlots + slot.type.remainingCapacity }
@@ -37,7 +38,7 @@ const summarizeSlots = (slots: Slot[]) => {
       canRequestSlot: false,
       hasTakenSlot: false,
       hasClosedSlot: false
-    } as SlotSummary)
+    })
 }
 
 const slotSummaries = computed(() =>
@@ -98,7 +99,7 @@ const formatClosingDate = (v: Date) => {
 </script>
 
 <template>
-  <div v-if="slotSummaries.length > 1">
+  <div>
     <h2 class="text-lg">Datum</h2>
     <div class="mt-2 flex flex-wrap gap-2">
       <button v-for="slotSummary in slotSummaries" :key="slotSummary.date"
