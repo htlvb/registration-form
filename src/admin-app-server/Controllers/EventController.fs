@@ -69,12 +69,14 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     [<HttpPost>]
     [<Authorize(Policy = "CreateEvent")>]
     member _.CreateEvent([<FromBody>]data: DataTransfer.CreateEventData) = async {
-        if String.IsNullOrWhiteSpace data.Key || String.IsNullOrWhiteSpace data.Title then
+        // creator must be an editor, otherwise event writers couldn't edit their own events
+        let editorIds = this.User.Identity.Name |> Option.ofObj |> Option.toArray
+        let event = DtoMapping.CreateEventData.toDomain editorIds data
+        if String.IsNullOrWhiteSpace event.Key || String.IsNullOrWhiteSpace event.Title then
             return this.BadRequest() :> IActionResult
+        elif not (event.Slots |> Array.forall (Domain.Slot.isInFuture (timeProvider.GetLocalNow().DateTime))) then
+            return this.BadRequest()
         else
-            // creator must be an editor, otherwise event writers couldn't edit their own events
-            let editorIds = this.User.Identity.Name |> Option.ofObj |> Option.toArray
-            let event = DtoMapping.CreateEventData.toDomain editorIds data
             match! eventStore.CreateEvent event with
             | Ok () -> return this.Created(getEventUrl event.Key, null)
             | Error Domain.EventKeyAlreadyExists -> return this.Conflict()
@@ -89,6 +91,8 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
             let update = DtoMapping.PatchEventData.toDomain data
             let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
             if not (Domain.EventPermissions.allowsUpdate update permissions) then
+                return this.BadRequest()
+            elif not (Domain.SlotUpdate.createsOnlyFutureSlots (timeProvider.GetLocalNow().DateTime) update.Slots) then
                 return this.BadRequest()
             else
                 do! eventStore.UpdateEvent event.Key update

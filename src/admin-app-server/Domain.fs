@@ -10,6 +10,9 @@ type Slot = {
     RemainingCapacity: int option
     CanRequestIfFullyBooked: bool
 }
+module Slot =
+    let isInFuture (now: DateTime) (slot: Slot) = slot.Time > now
+
 type MailTemplate = {
     Subject: string
     ContentTemplate: string
@@ -53,6 +56,13 @@ type SlotUpdate =
     | CreateSlot of Slot
     | UpdateSlot of DateTime * SlotUpdateData
     | DeleteSlot of DateTime
+module SlotUpdate =
+    let createsOnlyFutureSlots (now: DateTime) (updates: SlotUpdate seq) =
+        updates |> Seq.forall (function
+            | CreateSlot slot -> Slot.isInFuture now slot
+            | UpdateSlot _ | DeleteSlot _ -> true
+        )
+
 type EventUpdateData = {
     Key: string option
     Title: string option

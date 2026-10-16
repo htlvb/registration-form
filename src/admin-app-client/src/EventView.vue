@@ -144,6 +144,7 @@ const validate = (edit: EditableEvent) => {
   const slots = edit.slots.filter(v => !v.delete)
   for (const slot of slots) {
     if (!isValidTime(slot.startTime)) return 'Jeder Slot braucht eine gültige Startzeit.'
+    if (slot.isNew && new Date(slot.startTime).getTime() <= Date.now()) return 'Neue Slots müssen in der Zukunft liegen.'
     if (slot.hasDuration && (!isValidTime(slot.endTime) || new Date(slot.endTime!).getTime() <= new Date(slot.startTime).getTime())) return 'Das Ende eines Slots muss nach dessen Start liegen.'
     if (slot.hasClosingDate && !isValidTime(slot.closingDate)) return 'Der Anmeldeschluss eines Slots ist ungültig.'
     if (slot.hasRemainingCapacity && (!Number.isInteger(slot.remainingCapacity) || slot.remainingCapacity < 0)) return 'Die freien Plätze müssen eine ganze Zahl ≥ 0 sein.'
