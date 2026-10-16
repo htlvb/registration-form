@@ -4,6 +4,7 @@ export type Slot = {
   closingDate: string | null
   maxQuantityPerBooking: number | null
   remainingCapacity: number | null
+  canRequestIfFullyBooked: boolean
   registrations: EventRegistration[]
 }
 

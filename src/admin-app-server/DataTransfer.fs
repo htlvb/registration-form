@@ -21,6 +21,7 @@ type Slot = {
     ClosingDate: DateTime option
     MaxQuantityPerBooking: int option
     RemainingCapacity: int option
+    CanRequestIfFullyBooked: bool
     Registrations: EventRegistration list
 }
 

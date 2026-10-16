@@ -22,6 +22,7 @@ module Slot =
         ClosingDate = slot.ClosingDate
         MaxQuantityPerBooking = slot.MaxQuantityPerBooking
         RemainingCapacity = slot.RemainingCapacity
+        CanRequestIfFullyBooked = slot.CanRequestIfFullyBooked
         Registrations = registrations
     }
 

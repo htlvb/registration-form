@@ -39,6 +39,7 @@ type EditableSlot = {
   maxQuantityPerBooking: number
   hasRemainingCapacity: boolean
   remainingCapacity: number
+  canRequestIfFullyBooked: boolean
   isNew: boolean
   delete: boolean
 }
@@ -81,6 +82,7 @@ const beginEdit = () => {
       maxQuantityPerBooking: slot.maxQuantityPerBooking || 0,
       hasRemainingCapacity: slot.remainingCapacity !== null,
       remainingCapacity: slot.remainingCapacity || 0,
+      canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
       isNew: props.isNew,
       delete: false,
     })),
@@ -120,6 +122,7 @@ const addSlot = () => {
     maxQuantityPerBooking: 1,
     hasRemainingCapacity: false,
     remainingCapacity: 0,
+    canRequestIfFullyBooked: false,
     isNew: true,
     delete: false,
   })
@@ -178,7 +181,7 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
       closingDate,
       maxQuantityPerBooking,
       remainingCapacity,
-      canRequestIfFullyBooked: false,
+      canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
     }]
   }
   if (slot.delete) {
@@ -191,7 +194,8 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
   const setClosingDate = closingDate === null || original.closingDate === null ? closingDate !== original.closingDate : !DateTime.isSameTime(closingDate, original.closingDate)
   const setMaxQuantityPerBooking = maxQuantityPerBooking !== original.maxQuantityPerBooking
   const setRemainingCapacity = remainingCapacity !== original.remainingCapacity
-  if (!setTime && !setDuration && !setClosingDate && !setMaxQuantityPerBooking && !setRemainingCapacity) return []
+  const setCanRequestIfFullyBooked = slot.canRequestIfFullyBooked !== original.canRequestIfFullyBooked
+  if (!setTime && !setDuration && !setClosingDate && !setMaxQuantityPerBooking && !setRemainingCapacity && !setCanRequestIfFullyBooked) return []
 
   return [{
     type: 'update',
@@ -205,7 +209,7 @@ const getSlotPatch = (slot: EditableSlot) : DataTransfer.PatchEventDataSlot[] =>
     setMaxQuantityPerBooking,
     remainingCapacity,
     setRemainingCapacity,
-    canRequestIfFullyBooked: null,
+    canRequestIfFullyBooked: setCanRequestIfFullyBooked ? slot.canRequestIfFullyBooked : null,
   }]
 }
 
@@ -221,7 +225,7 @@ const getNewEvent = (edit: EditableEvent) : DataTransfer.CreateEventData => {
       closingDate: slot.hasClosingDate && slot.closingDate !== undefined ? slot.closingDate : null,
       maxQuantityPerBooking: slot.hasMaxQuantityPerBooking ? slot.maxQuantityPerBooking : null,
       remainingCapacity: slot.hasRemainingCapacity ? slot.remainingCapacity : null,
-      canRequestIfFullyBooked: false,
+      canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
     })),
     registrationConfirmationMail: edit.registrationConfirmationMail,
     requestConfirmationMail: edit.requestConfirmationMail,
@@ -358,6 +362,7 @@ const deleteEvent = async () => {
               <span class="text-sm">Anmeldeschluss: {{ slot.closingDate !== null ? DateTime.format(new Date(slot.closingDate)) : "-" }}</span>
               <span class="text-sm">Freie Plätze: {{ slot.remainingCapacity !== null ? slot.remainingCapacity : "unbegrenzt" }}</span>
               <span class="text-sm">Maximale Personen pro Registrierung: {{ slot.maxQuantityPerBooking !== null ? slot.maxQuantityPerBooking : "unbegrenzt" }}</span>
+              <span class="text-sm">Anfragen wenn ausgebucht: {{ slot.canRequestIfFullyBooked ? "ja" : "nein" }}</span>
             </li>
           </template>
           <template v-if="editEvent !== undefined">
@@ -396,6 +401,10 @@ const deleteEvent = async () => {
                 </label>
                 <input type="number" v-model="slot.maxQuantityPerBooking" class="input-text" :disabled="!slot.hasMaxQuantityPerBooking" min="1" />
               </div>
+              <label class="flex gap-2">
+                <input type="checkbox" v-model="slot.canRequestIfFullyBooked" />
+                <span class="text-sm">Anfragen möglich, wenn ausgebucht</span>
+              </label>
             </li>
           </template>
           <li v-if="editEvent !== undefined && event.canAddSlot" class="flex items-center">
