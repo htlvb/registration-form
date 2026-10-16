@@ -76,6 +76,8 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
             return this.BadRequest() :> IActionResult
         elif not (event.Slots |> Array.forall (Domain.Slot.isInFuture (timeProvider.GetLocalNow().DateTime))) then
             return this.BadRequest()
+        elif not (Domain.EventData.hasRequiredRequestConfirmationMail event) then
+            return this.BadRequest()
         else
             match! eventStore.CreateEvent event with
             | Ok () -> return this.Created(getEventUrl event.Key, null)
@@ -93,6 +95,8 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
             if not (Domain.EventPermissions.allowsUpdate update permissions) then
                 return this.BadRequest()
             elif not (Domain.SlotUpdate.createsOnlyFutureSlots (timeProvider.GetLocalNow().DateTime) update.Slots) then
+                return this.BadRequest()
+            elif not (Domain.EventData.applyUpdate update event |> Domain.EventData.hasRequiredRequestConfirmationMail) then
                 return this.BadRequest()
             else
                 do! eventStore.UpdateEvent event.Key update

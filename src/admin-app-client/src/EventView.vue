@@ -25,7 +25,7 @@ type EditableEvent = {
   reservationStartTime: string
   slots: EditableSlot[]
   registrationConfirmationMail: DataTransfer.MailTemplate
-  requestConfirmationMail: DataTransfer.MailTemplate | null
+  requestConfirmationMail: DataTransfer.MailTemplate // only used if a slot allows requests
 }
 type EditableSlot = {
   id: number
@@ -86,8 +86,9 @@ const beginEdit = () => {
       isNew: props.isNew,
       delete: false,
     })),
-    registrationConfirmationMail: props.event.registrationConfirmationMail,
-    requestConfirmationMail: props.event.requestConfirmationMail,
+    // copies, so that editing doesn't change the event
+    registrationConfirmationMail: { ...props.event.registrationConfirmationMail },
+    requestConfirmationMail: props.event.requestConfirmationMail !== null ? { ...props.event.requestConfirmationMail } : { subject: '', contentTemplate: '' },
   }
 }
 const cancelEdit = () => {
@@ -138,6 +139,10 @@ const deleteSlot = (slot: EditableSlot) => {
   }
 }
 
+// request confirmation mail is needed iff a slot allows requests
+const needsRequestConfirmationMail = (edit: EditableEvent) => edit.slots.some(v => !v.delete && v.canRequestIfFullyBooked)
+const getRequestConfirmationMail = (edit: EditableEvent) => needsRequestConfirmationMail(edit) ? edit.requestConfirmationMail : null
+
 const isValidTime = (v: string | undefined) => v !== undefined && v !== '' && !isNaN(new Date(v).getTime())
 
 const validate = (edit: EditableEvent) => {
@@ -152,6 +157,11 @@ const validate = (edit: EditableEvent) => {
     if (slot.hasClosingDate && !isValidTime(slot.closingDate)) return 'Der Anmeldeschluss eines Slots ist ungültig.'
     if (slot.hasRemainingCapacity && (!Number.isInteger(slot.remainingCapacity) || slot.remainingCapacity < 0)) return 'Die freien Plätze müssen eine ganze Zahl ≥ 0 sein.'
     if (slot.hasMaxQuantityPerBooking && (!Number.isInteger(slot.maxQuantityPerBooking) || slot.maxQuantityPerBooking < 1)) return 'Die maximale Personenanzahl pro Registrierung muss eine ganze Zahl ≥ 1 sein.'
+  }
+  if (edit.registrationConfirmationMail.subject.trim() === '') return 'Der Betreff der Registrierungsbestätigung darf nicht leer sein.'
+  if (needsRequestConfirmationMail(edit)) {
+    if (edit.requestConfirmationMail.subject.trim() === '') return 'Der Betreff der Anfragebestätigung darf nicht leer sein.'
+    if (edit.requestConfirmationMail.contentTemplate.trim() === '') return 'Der Inhalt der Anfragebestätigung darf nicht leer sein.'
   }
   const startTimes = slots.map(v => new Date(v.startTime).getTime())
   if (new Set(startTimes).size !== startTimes.length) return 'Zwei Slots dürfen nicht zur selben Zeit beginnen.'
@@ -228,21 +238,28 @@ const getNewEvent = (edit: EditableEvent) : DataTransfer.CreateEventData => {
       canRequestIfFullyBooked: slot.canRequestIfFullyBooked,
     })),
     registrationConfirmationMail: edit.registrationConfirmationMail,
-    requestConfirmationMail: edit.requestConfirmationMail,
+    requestConfirmationMail: getRequestConfirmationMail(edit),
   }
+}
+
+const isSameMailTemplate = (a: DataTransfer.MailTemplate | null, b: DataTransfer.MailTemplate | null) => {
+  if (a === null || b === null) return a === b
+  return a.subject === b.subject && a.contentTemplate === b.contentTemplate
 }
 
 const getEventPatch = (edit: EditableEvent) : DataTransfer.PatchEventData => {
   const canEditEventData = props.event.canEditEventData
+  const requestConfirmationMail = getRequestConfirmationMail(edit)
+  const setRequestConfirmationMail = canEditEventData && !isSameMailTemplate(requestConfirmationMail, props.event.requestConfirmationMail)
   return {
     key: null,
     title: canEditEventData && edit.title !== props.event.title ? edit.title : null,
     infoText: canEditEventData && edit.infoText !== props.event.infoText ? edit.infoText : null,
     reservationStartTime: canEditEventData && !DateTime.isSameTime(edit.reservationStartTime, props.event.reservationStartTime) ? edit.reservationStartTime : null,
     slots: edit.slots.flatMap(getSlotPatch),
-    registrationConfirmationMail: null,
-    requestConfirmationMail: null,
-    setRequestConfirmationMail: false,
+    registrationConfirmationMail: canEditEventData && !isSameMailTemplate(edit.registrationConfirmationMail, props.event.registrationConfirmationMail) ? edit.registrationConfirmationMail : null,
+    requestConfirmationMail: setRequestConfirmationMail ? requestConfirmationMail : null,
+    setRequestConfirmationMail,
   }
 }
 
@@ -414,6 +431,19 @@ const deleteEvent = async () => {
           </li>
         </ol>
       </div>
+      <template v-if="editEvent !== undefined">
+        <div class="flex flex-col gap-1">
+          <span class="text-sm">Registrierungsbestätigung</span>
+          <input type="text" v-model="editEvent.registrationConfirmationMail.subject" class="input-text" placeholder="Betreff" :disabled="!event.canEditEventData" />
+          <textarea v-model="editEvent.registrationConfirmationMail.contentTemplate" class="input-text" rows="6" placeholder="Inhalt" :disabled="!event.canEditEventData"></textarea>
+        </div>
+        <div v-if="needsRequestConfirmationMail(editEvent)" class="flex flex-col gap-1">
+          <span class="text-sm">Anfragebestätigung (nötig, weil Anfragen möglich sind)</span>
+          <input type="text" v-model="editEvent.requestConfirmationMail.subject" class="input-text" placeholder="Betreff" :disabled="!event.canEditEventData" />
+          <textarea v-model="editEvent.requestConfirmationMail.contentTemplate" class="input-text" rows="6" placeholder="Inhalt" :disabled="!event.canEditEventData"></textarea>
+        </div>
+        <span class="text-sm">Platzhalter im Inhalt: <code v-pre>{{{FullName}}}</code>, <code v-pre>{{{Date}}}</code>, <code v-pre>{{{Time}}}</code></span>
+      </template>
     </div>
     <div v-if="isShowingRegistrations && editEvent === undefined" class="flex flex-col gap-2">
       <span class="text-sm">Registrierungen</span>

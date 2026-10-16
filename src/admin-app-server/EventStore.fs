@@ -355,36 +355,7 @@ type InMemoryEventStore(events) =
             return events |> List.tryFind (fun v -> v.Key = eventKey)
         }
         member _.UpdateEvent eventKey data = async {
-            let updateSlot (slot: Domain.Slot) (update: Domain.SlotUpdateData) : Domain.Slot =
-                {
-                    Time = update.Time |> Option.defaultValue slot.Time
-                    Duration = update.Duration |> Option.defaultValue slot.Duration
-                    ClosingDate = update.ClosingDate |> Option.defaultValue slot.ClosingDate
-                    MaxQuantityPerBooking = update.MaxQuantityPerBooking |> Option.defaultValue slot.MaxQuantityPerBooking
-                    RemainingCapacity = update.RemainingCapacity |> Option.defaultValue slot.RemainingCapacity
-                    CanRequestIfFullyBooked = update.CanRequestIfFullyBooked |> Option.defaultValue slot.CanRequestIfFullyBooked
-                }
-            let applySlotUpdate (slots: Domain.Slot[]) (update: Domain.SlotUpdate) =
-                match update with
-                | Domain.CreateSlot v -> [| v; yield! slots |]
-                | Domain.UpdateSlot (time, update) ->
-                    slots |> Array.map (fun v -> if v.Time = time then updateSlot v update else v)
-                | Domain.DeleteSlot time -> slots |> Array.filter (fun v -> v.Time <> time)
-            let update (event: Domain.EventData) (data: Domain.EventUpdateData) : Domain.EventData =
-                {
-                    Key = data.Key |> Option.defaultValue event.Key
-                    Title = data.Title |> Option.defaultValue event.Title
-                    InfoText = data.InfoText |> Option.defaultValue event.InfoText
-                    ReservationStartTime = data.ReservationStartTime |> Option.defaultValue event.ReservationStartTime
-                    Slots = (event.Slots, data.Slots) ||> Array.fold applySlotUpdate
-                    RegistrationConfirmationMail = data.RegistrationConfirmationMail |> Option.defaultValue event.RegistrationConfirmationMail
-                    RequestConfirmationMail =
-                        match data.RequestConfirmationMail with
-                        | None -> event.RequestConfirmationMail
-                        | Some v -> v
-                    EditorIds = [||]
-                }
-            events <- events |> List.map (fun v -> if v.Key = eventKey then update v data else v)
+            events <- events |> List.map (fun v -> if v.Key = eventKey then Domain.EventData.applyUpdate data v else v)
         }
         member _.DeleteEvent eventKey = async {
             events <- events |> List.filter (fun v -> v.Key <> eventKey)

@@ -73,6 +73,46 @@ type EventUpdateData = {
     RequestConfirmationMail: MailTemplate option option
 }
 
+module EventData =
+    let private updateSlot (slot: Slot) (update: SlotUpdateData) : Slot =
+        {
+            Time = update.Time |> Option.defaultValue slot.Time
+            Duration = update.Duration |> Option.defaultValue slot.Duration
+            ClosingDate = update.ClosingDate |> Option.defaultValue slot.ClosingDate
+            MaxQuantityPerBooking = update.MaxQuantityPerBooking |> Option.defaultValue slot.MaxQuantityPerBooking
+            RemainingCapacity = update.RemainingCapacity |> Option.defaultValue slot.RemainingCapacity
+            CanRequestIfFullyBooked = update.CanRequestIfFullyBooked |> Option.defaultValue slot.CanRequestIfFullyBooked
+        }
+
+    let private applySlotUpdate (slots: Slot[]) (update: SlotUpdate) =
+        match update with
+        | CreateSlot v -> [| v; yield! slots |]
+        | UpdateSlot (time, update) ->
+            slots |> Array.map (fun v -> if v.Time = time then updateSlot v update else v)
+        | DeleteSlot time -> slots |> Array.filter (fun v -> v.Time <> time)
+
+    let applyUpdate (data: EventUpdateData) (event: EventData) : EventData =
+        {
+            Key = data.Key |> Option.defaultValue event.Key
+            Title = data.Title |> Option.defaultValue event.Title
+            InfoText = data.InfoText |> Option.defaultValue event.InfoText
+            ReservationStartTime = data.ReservationStartTime |> Option.defaultValue event.ReservationStartTime
+            // same order as in the db: delete, update, create
+            Slots =
+                let deletes = data.Slots |> Array.filter (function DeleteSlot _ -> true | _ -> false)
+                let updates = data.Slots |> Array.filter (function UpdateSlot _ -> true | _ -> false)
+                let creates = data.Slots |> Array.filter (function CreateSlot _ -> true | _ -> false)
+                Array.concat [ deletes; updates; creates ] |> Array.fold applySlotUpdate event.Slots
+            RegistrationConfirmationMail = data.RegistrationConfirmationMail |> Option.defaultValue event.RegistrationConfirmationMail
+            RequestConfirmationMail = data.RequestConfirmationMail |> Option.defaultValue event.RequestConfirmationMail
+            EditorIds = event.EditorIds
+        }
+
+    /// requests get a confirmation mail, so it must exist as soon as one slot allows requests
+    let hasRequiredRequestConfirmationMail (event: EventData) =
+        event.RequestConfirmationMail.IsSome ||
+        event.Slots |> Array.forall (fun v -> not v.CanRequestIfFullyBooked)
+
 type EventPermissions = {
     CanDelete: bool
     CanEditEventData: bool
