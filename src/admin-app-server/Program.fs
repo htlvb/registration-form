@@ -78,6 +78,9 @@ let main args =
 
     app.UseHttpsRedirection() |> ignore
 
+    app.UseFileServer() |> ignore
+    app.MapFallbackToFile("index.html") |> ignore
+
     app.UseAuthentication() |> ignore
     app.UseAuthorization() |> ignore
 

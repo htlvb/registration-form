@@ -1,11 +1,9 @@
-#See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim-amd64 AS build-server
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-server
 WORKDIR /src
 COPY ["./src/user-app-server/HTLVB.RegistrationForm.Server.fsproj", "./server/"]
 RUN dotnet restore server
@@ -16,7 +14,7 @@ RUN dotnet build -c Release -o /app/build
 FROM build-server AS publish-server
 RUN dotnet publish -c Release -o /app/publish
 
-FROM node:20 AS build-client
+FROM node:24 AS build-client
 WORKDIR /src
 COPY src/user-app-client/package.json src/user-app-client/package-lock.json ./
 RUN npm ci
