@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import * as DataTransfer from './DataTransfer'
 import * as DateTime from './DateTime'
+import * as Text from './Text'
 import { uiFetchAuthorized } from './UIFetch'
 
 const props = defineProps<{
@@ -61,8 +62,8 @@ const cancelRegistration = async (registration: DataTransfer.EventRegistration) 
   <div class="border rounded p-4 flex flex-col gap-2">
     <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
       <span class="rounded bg-blue-htlvb/50 -mx-2 px-2">{{ DateTime.format(new Date(eventSlot.startTime)) }}</span>
-      <span class="text-sm">{{ summary.registrationCount }} Registrierungen ({{ summary.registeredQuantity }} Personen)</span>
-      <span v-if="summary.requestCount > 0" class="text-sm">{{ summary.requestCount }} Anfragen ({{ summary.requestedQuantity }} Personen)</span>
+      <span class="text-sm">{{ Text.pluralize(summary.registrationCount, 'Registrierung', 'Registrierungen') }} ({{ Text.pluralize(summary.registeredQuantity, 'Person', 'Personen') }})</span>
+      <span v-if="summary.requestCount > 0" class="text-sm">{{ Text.pluralize(summary.requestCount, 'Anfrage', 'Anfragen') }} ({{ Text.pluralize(summary.requestedQuantity, 'Person', 'Personen') }})</span>
       <span class="text-sm">Freie Plätze: {{ eventSlot.remainingCapacity !== null ? eventSlot.remainingCapacity : "unbegrenzt" }}</span>
     </div>
     <span v-if="cancelError !== undefined" class="text-rose-400">{{ cancelError }}</span>
