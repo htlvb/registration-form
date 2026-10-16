@@ -47,20 +47,21 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         let registrationMap = registrations |> List.groupBy (fun v -> v.EventKey, v.Time) |> Map.ofList
         let getSlotRegistrations (eventKey: string) (slot: Domain.Slot) =
             registrationMap |> Map.tryFind (eventKey, slot.Time) |> Option.defaultValue []
-        let! eventsWithRegistrationAuthorization =
+        let! eventsWithAuthorization =
             events
             |> List.map (fun eventData -> async {
-                let! authorization = authService.AuthorizeAsync(this.User, eventData, "ReadEventRegistrations") |> Async.AwaitTask
-                return eventData, authorization.Succeeded
+                let! registrationsAuthorization = authService.AuthorizeAsync(this.User, eventData, "ReadEventRegistrations") |> Async.AwaitTask
+                let! updateAuthorization = authService.AuthorizeAsync(this.User, eventData, "UpdateEvent") |> Async.AwaitTask
+                return eventData, registrationsAuthorization.Succeeded, updateAuthorization.Succeeded
             })
             |> Async.Sequential
         let! createEventAuthorization = authService.AuthorizeAsync(this.User, "CreateEvent") |> Async.AwaitTask
         return {|
             Events =
-                eventsWithRegistrationAuthorization
-                |> Array.map (fun (eventData, isAllowedToViewRegistrations) ->
+                eventsWithAuthorization
+                |> Array.map (fun (eventData, isAllowedToViewRegistrations, isAllowedToUpdate) ->
                     let event = Domain.Event.fromEventData timeProvider eventData
-                    DtoMapping.Event.fromDomain (timeProvider.GetLocalNow().DateTime) (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) getRegistrationUrl (getSlotRegistrations eventData.Key) isAllowedToViewRegistrations event
+                    DtoMapping.Event.fromDomain (timeProvider.GetLocalNow().DateTime) (getEventUrl eventData.Key) (getPublicRegistrationUrl eventData.Key) getRegistrationUrl (getSlotRegistrations eventData.Key) isAllowedToViewRegistrations isAllowedToUpdate event
                 )
             CreateEventUrl = if createEventAuthorization.Succeeded then Some (this.Url.Action(nameof(this.CreateEvent))) else None
         |}
@@ -89,7 +90,7 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     member _.PatchEvent(eventKey: string, [<FromBody>]data: DataTransfer.PatchEventData) = async {
         match! checkEventAuthorization eventKey "UpdateEvent" with
         | EventNotFound -> return this.NotFound() :> IActionResult
-        | EventAuthorizationFailed _ -> return this.Unauthorized()
+        | EventAuthorizationFailed _ -> return this.Forbid()
         | EventAuthorizationSucceeded event ->
             match DtoMapping.PatchEventData.tryToDomain data with
             | None -> return this.BadRequest()
@@ -106,7 +107,7 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
     member _.DeleteEvent(eventKey: string) = async {
         match! checkEventAuthorization eventKey "UpdateEvent" with
         | EventNotFound -> return this.NotFound() :> IActionResult
-        | EventAuthorizationFailed _ -> return this.Unauthorized()
+        | EventAuthorizationFailed _ -> return this.Forbid()
         | EventAuthorizationSucceeded event ->
             let permissions = Domain.Event.fromEventData timeProvider event |> Domain.EventPermissions.fromEvent
             if not permissions.CanDelete then
@@ -124,7 +125,7 @@ type EventController (eventStore: IEventStore, timeProvider: TimeProvider, authS
         | Some registration ->
             match! checkEventAuthorization registration.EventKey "UpdateEventRegistrations" with
             | EventNotFound -> return this.NotFound()
-            | EventAuthorizationFailed _ -> return this.Unauthorized()
+            | EventAuthorizationFailed _ -> return this.Forbid()
             | EventAuthorizationSucceeded _ ->
                 do! eventStore.CancelEventRegistration registrationId (timeProvider.GetLocalNow().DateTime)
                 return this.Ok()

@@ -77,19 +77,22 @@ module MailTemplate =
     }
 
 module Event =
-    let fromDomain now eventUrl publicRegistrationUrl getRegistrationUrl getSlotRegistrations isAllowedToViewRegistrations event : DataTransfer.Event =
+    let fromDomain now eventUrl publicRegistrationUrl getRegistrationUrl getSlotRegistrations isAllowedToViewRegistrations isAllowedToUpdate event : DataTransfer.Event =
         let eventType, data =
             match event with
             | Domain.DraftEvent v -> "draft", v
             | Domain.ReleasedEvent v -> "released", v
             | Domain.ArchivedEvent v -> "archived", v
-        let permissions = Domain.EventPermissions.fromEvent event
+        let permissions =
+            Domain.EventPermissions.fromEvent event
+            |> if isAllowedToUpdate then id else Domain.EventPermissions.withoutUpdates
         let canViewRegistrations = permissions.CanViewRegistrations && isAllowedToViewRegistrations
         let getSlot (slot: Domain.Slot) =
             let registrations =
                 if canViewRegistrations then getSlotRegistrations slot |> List.map (fun v -> EventRegistrations.fromDomain (getRegistrationUrl v) v)
                 else []
-            Slot.fromDomain registrations (Domain.SlotEditPermission.fromSlot now event slot) slot
+            let editPermission = if isAllowedToUpdate then Domain.SlotEditPermission.fromSlot now event slot else Domain.SlotLocked
+            Slot.fromDomain registrations editPermission slot
         {
             Type = eventType
             Key = data.Key
@@ -108,7 +111,6 @@ module Event =
             CanDeleteSlot = permissions.CanDeleteSlot
             CanEditRegistrationFields = permissions.CanEditRegistrationFields
             CanViewRegistrations = canViewRegistrations
-
         }
 
 module CreateEventDataSlot =

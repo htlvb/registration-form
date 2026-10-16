@@ -180,6 +180,10 @@ module EventPermissions =
         | ReleasedEvent _ -> { CanDelete = false; CanEditEventData = true; CanAddSlot = true; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
         | ArchivedEvent _ -> { CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false; CanViewRegistrations = true }
 
+    /// for users that aren't allowed to update the event
+    let withoutUpdates permissions =
+        { permissions with CanDelete = false; CanEditEventData = false; CanAddSlot = false; CanDeleteSlot = false; CanEditRegistrationFields = false }
+
     let allowsUpdate (now: DateTime) (event: Event) (update: EventUpdateData) =
         let permissions = fromEvent event
         let eventData =

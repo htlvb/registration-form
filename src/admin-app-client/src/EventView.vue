@@ -338,6 +338,9 @@ const saveEvent = async () => {
   else if (props.isNew && result.response?.status === 403) {
     saveError.value = 'Das Event kann nicht erstellt werden, weil Ihr Konto keine E-Mail-Adresse hat.'
   }
+  else if (result.response?.status === 403) {
+    saveError.value = 'Sie sind nicht berechtigt, dieses Event zu bearbeiten.'
+  }
   else {
     saveError.value = 'Fehler beim Speichern des Events.'
   }
