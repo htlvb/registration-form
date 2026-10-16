@@ -7,7 +7,7 @@ const keycloak = new Keycloak({
 })
 
 try {
-    const authenticated = await keycloak.init({ onLoad: 'login-required' })
+    const authenticated = await keycloak.init({ onLoad: 'login-required', checkLoginIframe: false })
     if (import.meta.env.DEV) {
         if (authenticated) {
             console.log('User is authenticated')
