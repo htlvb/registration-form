@@ -256,7 +256,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
         member _.GetEvents () = async {
             use! connection = dataSource.OpenConnectionAsync().AsTask() |> Async.AwaitTask
             let! dbEvents = connection.QueryAsync<DbEvent>("SELECT key, title, info_text, reservation_start_time, registration_confirmation_mail_subject, registration_confirmation_mail_content_template, request_confirmation_mail_subject, request_confirmation_mail_content_template, registration_fields, editor_ids FROM event") |> Async.AwaitTask
-            let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = ANY(@EventKeys)", {| EventKeys = dbEvents |> Seq.map _.key |> Seq.toArray |}) |> Async.AwaitTask
+            let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = ANY(@EventKeys) ORDER BY time", {| EventKeys = dbEvents |> Seq.map _.key |> Seq.toArray |}) |> Async.AwaitTask
             let dbEventSlotMap = dbEventSlots |> Seq.groupBy _.event_key |> Map.ofSeq
             return
                 dbEvents
@@ -273,7 +273,7 @@ type PgsqlEventStore(dataSource: NpgsqlDataSource) =
             match Seq.tryExactlyOne dbEvents with
             | None -> return None
             | Some dbEvent ->
-                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = @EventKey", {| EventKey = eventKey |}) |> Async.AwaitTask
+                let! dbEventSlots = connection.QueryAsync<DbEventSlot>("SELECT event_key, time, duration, closing_date, max_quantity_per_booking, remaining_capacity, can_request_if_fully_booked FROM event_slot WHERE event_key = @EventKey ORDER BY time", {| EventKey = eventKey |}) |> Async.AwaitTask
                 return Some (DbEvent.toDomain dbEvent (Seq.toArray dbEventSlots))
         }
 
