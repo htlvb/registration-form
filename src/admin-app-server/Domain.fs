@@ -40,7 +40,7 @@ module RegistrationField =
     |]
 
     /// placeholders in mail templates that are filled by the user app
-    let reservedKeys = set [ "Date"; "Time" ]
+    let reservedKeys = set [ "Date"; "Time"; "EndDate"; "EndTime" ]
 
     let isValidKey (key: string) =
         Text.RegularExpressions.Regex.IsMatch(key, @"^[A-Za-z][A-Za-z0-9_]*$") &&

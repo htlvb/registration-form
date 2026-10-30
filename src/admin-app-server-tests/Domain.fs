@@ -75,6 +75,7 @@ let tests =
             Expect.isTrue (Domain.RegistrationField.isValidFieldList (withKey "School_1")) "Field with valid key should be valid"
             Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "FullName")) "Field with duplicate key should be invalid"
             Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "Date")) "Field with reserved key should be invalid"
+            Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "EndTime")) "Field with reserved end key should be invalid"
             Expect.isFalse (Domain.RegistrationField.isValidFieldList (withKey "Full Name")) "Field with invalid key should be invalid"
         }
 

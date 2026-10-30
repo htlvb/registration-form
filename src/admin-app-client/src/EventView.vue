@@ -181,6 +181,11 @@ const isSameRegistrationFieldList = (a: DataTransfer.RegistrationField[], b: Dat
   a.length === b.length && a.every((v, i) => v.key === b[i]!.key && v.label === b[i]!.label && v.type === b[i]!.type && v.validator === b[i]!.validator)
 const getPlaceholder = (key: string) => `{{{${key}}}}`
 
+// end of a slot is optional, so placeholders for it are only shown if every slot has one
+const startPlaceholderKeys = ['Date', 'Time']
+const endPlaceholderKeys = ['EndDate', 'EndTime']
+const getSlotPlaceholderKeys = (edit: EditableEvent) => [...startPlaceholderKeys, ...(edit.slots.every(v => v.delete || v.hasDuration) ? endPlaceholderKeys : [])]
+
 const isValidTime = (v: string | undefined) => v !== undefined && v !== '' && !isNaN(new Date(v).getTime())
 
 const validate = (edit: EditableEvent) => {
@@ -199,7 +204,7 @@ const validate = (edit: EditableEvent) => {
   const registrationFields = getRegistrationFields(edit)
   for (const field of registrationFields) {
     if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(field.key)) return `Der Schlüssel "${field.key}" eines Registrierungsfelds ist ungültig (nur Buchstaben, Ziffern und _, beginnend mit einem Buchstaben).`
-    if (field.key === 'Date' || field.key === 'Time') return `Der Schlüssel "${field.key}" ist für Mailvorlagen reserviert.`
+    if ([...startPlaceholderKeys, ...endPlaceholderKeys].includes(field.key)) return `Der Schlüssel "${field.key}" ist für Mailvorlagen reserviert.`
     if (field.label === '') return 'Jedes Registrierungsfeld braucht eine Bezeichnung.'
   }
   if (new Set(registrationFields.map(v => v.key)).size !== registrationFields.length) return 'Zwei Registrierungsfelder dürfen nicht denselben Schlüssel haben.'
@@ -555,7 +560,7 @@ const deleteEvent = async () => {
         </div>
         <span class="text-sm">
           Platzhalter im Inhalt:
-          <template v-for="key in [...editEvent.registrationFields.map(v => v.key.trim()).filter(v => v !== ''), 'Date', 'Time']" :key="key"><code v-text="getPlaceholder(key)"></code>&#32;</template>
+          <template v-for="key in [...editEvent.registrationFields.map(v => v.key.trim()).filter(v => v !== ''), ...getSlotPlaceholderKeys(editEvent)]" :key="key"><code v-text="getPlaceholder(key)"></code>&#32;</template>
         </span>
       </template>
     </div>

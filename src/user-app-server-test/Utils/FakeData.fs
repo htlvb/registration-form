@@ -51,6 +51,21 @@ let events =
             }
             RegistrationFields = registrationFields
         }
+        {
+            Key = "workshop-with-end"
+            Title = "Workshop"
+            InfoText = ""
+            ReservationStartTime = DateTime(2025, 2, 1, 8, 0, 0)
+            Slots = [|
+                { Time = DateTime(2025, 3, 15, 22, 30, 0); Duration = Some (TimeSpan.FromHours 2.); ClosingDate = None; MaxQuantityPerBooking = None; RemainingCapacity = None; CanRequestIfFullyBooked = false }
+            |]
+            RegistrationConfirmationMail = {
+                Subject = "Anmeldung zum Workshop"
+                ContentTemplate = "{{{Date}}} {{{Time}}} - {{{EndDate}}} {{{EndTime}}}"
+            }
+            RequestConfirmationMail = None
+            RegistrationFields = registrationFields
+        }
     ]
     |> List.map (fun v -> v.Key, v)
     |> Map.ofList

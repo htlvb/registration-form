@@ -36,6 +36,12 @@ module Subscriber =
                 yield! data |> Map.toList
                 "Date", slot.StartTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
                 "Time", slot.StartTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                match slot.Duration with
+                | Some duration ->
+                    let endTime = slot.StartTime + duration
+                    "EndDate", endTime.ToString("d", CultureInfo.GetCultureInfo("de-AT"))
+                    "EndTime", endTime.ToString("t", CultureInfo.GetCultureInfo("de-AT"))
+                | None -> ()
             ]
             {
                 Recipient = { Name = ""; MailAddress = mailAddress }

@@ -4,6 +4,7 @@ open HTLVB.RegistrationForm.Server
 open HTLVB.RegistrationForm.Server.Tests.Utils
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.TestHost
+open Microsoft.Extensions.DependencyInjection
 open System
 open System.Net.Http
 open System.Net.Http.Json
@@ -91,6 +92,21 @@ let requestSlot' pickBookingQuantity = async {
     use! server = InMemoryServer.start()
     use httpClient = server.GetTestClient()
     return! requestSlot server httpClient pickBookingQuantity
+}
+
+[<Fact>]
+let ``Confirmation mail contains end of slot`` () = async {
+    use! server = InMemoryServer.start()
+    use httpClient = server.GetTestClient()
+    let! response = bookSlot server httpClient "workshop-with-end" (fun v ->
+        match v.Type with
+        | :? DataTransfer.SlotTypeFree as v -> Some (v.Url, 1)
+        | _ -> None
+    )
+    Assert.Equal(enum StatusCodes.Status200OK, response.StatusCode)
+    let sender = server.Services.GetRequiredService<IBookingConfirmationSender>() :?> InMemoryBookingConfirmationSender
+    let mail = Assert.Single(sender.SentMails)
+    Assert.Equal("15.03.2025 22:30 - 16.03.2025 00:30", mail.Content)
 }
 
 [<Fact>]
